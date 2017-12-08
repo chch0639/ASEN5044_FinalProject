@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
+problem = 2;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -20,12 +20,12 @@ stations = 6;                   % number of tracking stations
 mu = 398600;                    % km^3/s^2
 omegaE = 2*pi/86400;            % rad/s
 RE = 6378;                      % km
+r0 = 6678;                      % km
 dt = 10;                        % s
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch problem
   case 1  % HW8 question 2
-    r0 = 6678;                      % km
     x0 = r0;                        % km
     xdot0 = 0;                      % km/s
     y0 = 0;                         % km
@@ -261,18 +261,34 @@ switch problem
     end
     
   case 2  % linearized KF (LKF)
+    T = 2*pi*sqrt(r0^3/mu);           % period, s
+    time = 0:dt:T+dt;                 % time vector, s
+    tf = time(end);                   % final time, s
+    
+    % initialize matrices
+    states.x = zeros(n,length(time));
+    states.dx = zeros(n,length(time));
+    states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
+    inputs.u = zeros(m,length(time));
+    inputs.unom = zeros(m,length(time));
+    meas.y = zeros(p,length(time));
+    meas.ynom = zeros(p,length(time));
     B = [0,0; 1,0; 0,0; 0,1];
     G = dt*B;
     Omega = [0,0; 1,0; 0,0; 0,1];
+    u(:,1) = [0;0];
     P = 0;
     Q = 0;
     R = 0;
-    
-    states.x = xhat;    states.dx = dxhat;
-    inputs.u = u;       inputs.dnom = dnom;
-    meas.y = y;         meas.dy = dy;
-    
-    [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt);
+
+    % calculate nominal trajectory
+    states.x = [r0.*cos(2*pi.*time./T);
+                -2*pi*r0/T.*sin(2*pi.*time./T);
+                r0.*sin(2*pi.*time./T);
+                2*pi*r0/T.*cos(2*pi.*time./T)];
+         
+
+    [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);
     
     
   case 3  % extended KF (EKF)

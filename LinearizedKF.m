@@ -41,8 +41,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,P,Q,Omega,R,n,tf,dt,truth)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt)
-xhat = states.xhat;     dxhat = states.dxhat;
+function [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu)
+xhat = states.x;        dxhat = states.dx;
 u = inputs.u;           unom = inputs.unom;
 y = meas.y;             ynom = meas.ynom;
 
@@ -59,7 +59,7 @@ du(:,1) = u(:,1) - unom(:,1);
 dy = y(:,1) - ynom(:,1);
 
 for kk = 1:tf/dt
-  Anom = Anominal(xhat(:,kk+1));
+  Anom = Anominal(xhat(:,kk+1),mu);
   F = I + dt*Anom;
   
   % C and H?
