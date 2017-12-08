@@ -267,6 +267,7 @@ switch problem
         
         % initialize matrices
         states.x = zeros(n,length(time));
+        states.x(:,1) = [r0; 0; 0; r0*sqrt(mu/r0^3)];
         states.dx = zeros(n,length(time));
         states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
         inputs.u = zeros(m,length(time));
@@ -277,15 +278,23 @@ switch problem
         G = dt*B;
         Omega = [0,0; 1,0; 0,0; 0,1];
         u(:,1) = [0;0];
-        P = 0;
-        Q = 0;
-        R = 0;
+        P = 1e4*eye(n);
+        Q = 1e4*diag([0.1 0.01 0.1 0.01]);
+        R = diag([0.001 0.0001 0.1]);
+        Sv = chol(Q)';
         
         % calculate nominal trajectory
         states.x = [r0.*cos(2*pi.*time./T);
-            -2*pi*r0/T.*sin(2*pi.*time./T);
-            r0.*sin(2*pi.*time./T);
-            2*pi*r0/T.*cos(2*pi.*time./T)];
+                    -2*pi*r0/T.*sin(2*pi.*time./T);
+                    r0.*sin(2*pi.*time./T);
+                    2*pi*r0/T.*cos(2*pi.*time./T)];
+                  
+        % CHECK THIS -- which is x, dx, y, ynom          
+        for kk = 1:length(time)
+            % Simulate noisy measurements and state perturbations
+            states.dx(:,kk) = Sv*randn(n,1);
+            meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
+        end          
         
         
         [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);
