@@ -309,7 +309,7 @@ switch problem
         
         % Inputs to EKF:
         u = [0;0];
-        P0 = 1e4*eye(4);
+        P0 = eye(4);
         Omega = eye(4);
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
@@ -335,10 +335,8 @@ switch problem
         
         figure()
         hold on; grid on; box on; axis equal;
-        title('Extended Kalman Filter')
-        plot(xnom(1,:), xnom(3,:), 'b')
-        plot(xhat(1,:), xhat(3,:), 'r')
-        legend('Noisy Data', 'Filtered')
+        title('Simulated Noise')
+        plot(xnom(1,:), xnom(3,:))
         
         
         
