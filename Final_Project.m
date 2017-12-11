@@ -290,11 +290,11 @@ switch problem
                     2*pi*r0/T.*cos(2*pi.*time./T)];
                   
         % CHECK THIS -- which is x, dx, y, ynom          
-        for kk = 1:length(time)
-            % Simulate noisy measurements and state perturbations
-            states.dx(:,kk) = Sv*randn(n,1);
-            meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
-        end          
+%         for kk = 1:length(time)
+%             % Simulate noisy measurements and state perturbations
+%             states.dx(:,kk) = Sv*randn(n,1);
+%             meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
+%         end          
         
         
         [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);

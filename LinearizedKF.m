@@ -63,6 +63,7 @@ for kk = 1:tf/dt
   F = I + dt*Anom;
   
   % C and H?
+  [y(:,kk+1), H] = measure(xnom(:,kk+1), kk, dt); % NONLINEAR MEASUREMENT
   
   % time update step (-) superscript
   dxhat(:,kk+1) = F*dxhat(:,kk)+G*du;
@@ -73,6 +74,9 @@ for kk = 1:tf/dt
   % measurement update step (+) superscript
   dxhat(:,kk+1) = dxhat(:,kk+1)+K*(dy-H*dxhat(:,kk+1)); % a posteriori
   P = (I-K*H)*P*(I-K*H)'+K*R*K';
+  
+  
+  
   dy = y(:,kk+1) - ynom(:,kk+1);
   
   % 2sigma error bounds
