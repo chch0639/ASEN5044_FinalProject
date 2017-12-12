@@ -55,7 +55,7 @@ for kk = 1:tf/dt
   
   % time update step (-) superscript
   
-  % Use full nonlinear dynamics to estimate the state used before
+  % Use full nonlinear dynamics to estimate the state
   dx = NLode([],xhat(:,kk),u,mu);
   
   % time update

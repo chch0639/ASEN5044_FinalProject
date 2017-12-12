@@ -314,7 +314,7 @@ switch problem
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
         Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-        Sv = chol(Q);
+        Sv = chol(Q)';
         R = diag([0.001 0.0001 0.1]);
         
         xnom = [r0.*cos(2*pi.*time./T);
