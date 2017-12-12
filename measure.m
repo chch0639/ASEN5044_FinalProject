@@ -56,13 +56,17 @@ for ii = 1:stations
     theta(ii) = atan2(Ys(ii),Xs(ii));
     phi(ii) = atan2((Y-Ys(ii)), (X-Xs(ii)));
     
-    if theta(ii) < 0 && phi(ii) > 0
-        theta(ii) = theta(ii) + 2*pi;
-    elseif theta(ii) > 0 && phi(ii) < 0
-        theta(ii) = theta(ii) - 2*pi;
-    end
+%     if theta(ii) < 0 && phi(ii) > 0
+%         theta(ii) = theta(ii) + 2*pi;
+%     elseif theta(ii) > 0 && phi(ii) < 0
+%         theta(ii) = theta(ii) - 2*pi;
+%     end
+
+check1 = (theta(ii)-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2);
+check2 = (theta(ii)-pi/2 >= phi(ii) && phi(ii) <= theta(ii)+pi/2-2*pi);
+check3 = (theta(ii)+2*pi-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2+2*pi);
     
-    if theta(ii) - pi/2 <= phi(ii) && phi(ii) <= theta(ii) + pi/2
+    if check1 || check2 || check3
         % Take measurement if satellite is in view of station
         
         rho = sqrt((X-Xs(ii))^2 + (Y-Ys(ii))^2);
