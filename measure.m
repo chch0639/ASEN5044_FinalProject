@@ -37,7 +37,7 @@ Y = xhat(3);
 Ydot = xhat(4);
 
 % Initialize variables in loop
-yhat = NaN*ones(3,1); 
+yhat = zeros(3,1); 
 Hnom = zeros(3,4);
 Xs = zeros(stations,1); 
 Xs_dot = zeros(stations,1);

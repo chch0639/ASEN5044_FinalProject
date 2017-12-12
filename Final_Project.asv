@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 3;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,6 +23,12 @@ RE = 6378;                      % km
 r0 = 6678;                      % km
 dt = 10;                        % s
 rng(100);
+x0 = r0;                        % km
+xdot0 = 0;                      % km/s
+y0 = 0;                         % km
+ydot0 = r0*sqrt(mu/r0^3);       % km/s
+xnom = [x0,xdot0,y0,ydot0];     % initial state
+x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
 
 % data:
@@ -42,13 +48,6 @@ load Truth.mat
 
 switch problem
     case 1  % HW8 question 2
-        x0 = r0;                        % km
-        xdot0 = 0;                      % km/s
-        y0 = 0;                         % km
-        ydot0 = r0*sqrt(mu/r0^3);       % km/s
-        xnom = [x0,xdot0,y0,ydot0];     % initial state
-        x_init = xnom;
-        
         %% part a
         % CT LTI
         Anom = Anominal(xnom,mu);
@@ -237,42 +236,57 @@ switch problem
         states.x(:,1) = [r0; 0; 0; r0*sqrt(mu/r0^3)];
         states.dx = zeros(n,length(tvec));
         states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
-        inputs.u = zeros(m,length(tv));
-        inputs.unom = zeros(m,length(time));
-        meas.y = zeros(p,length(time));
-        meas.ynom = zeros(p,length(time));
+        inputs.u = zeros(m,length(tvec));
+        inputs.unom = zeros(m,length(tvec));
+        meas.y = zeros(p,length(tvec));
+        meas.ynom = zeros(p,length(tvec));
         B = [0,0; 1,0; 0,0; 0,1];
         G = dt*B;
         Omega = [0,0; 1,0; 0,0; 0,1];
         u(:,1) = [0;0];
         P = 1e4*eye(n);
-        Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-        R = diag([0.001 0.0001 0.1]);
-        Sv = chol(Q)';
+%         Q = 1e4*diag([0.1 0.01 0.1 0.01]);
+%         R = diag([0.001 0.0001 0.1]);
+        Q = Qtrue;
+        R = Rtrue;
         
         % calculate nominal trajectory
-        states.x = [r0.*cos(2*pi.*time./T);
-                    -2*pi*r0/T.*sin(2*pi.*time./T);
-                    r0.*sin(2*pi.*time./T);
-                    2*pi*r0/T.*cos(2*pi.*time./T)];
-                  
-        % CHECK THIS -- which is x, dx, y, ynom          
-%         for kk = 1:length(time)
-%             % Simulate noisy measurements and state perturbations
-%             states.dx(:,kk) = Sv*randn(n,1);
-%             meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
-%         end          
+        [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
+        [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu);
         
-        [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);
+        if plot_flag
+            figure()
+            hold on; box on; grid on; axis equal
+            title('Satellite Orbit')
+            plot(states.xnom(:,1)', states.xnom(:,3)', 'r')
+            plot(dxhat(1,:) + states.xnom(:,1)', dxhat(3,:) +  states.xnom(:,3)', 'b')
+            legend('Nominal', 'LKF')
+            xlabel('X position')
+            ylabel('Y position')
+            
+            figure()
+            suptitle('States Over Time')
+            subplot(2,1,1)
+            hold on; grid on; box on;
+            ylabel('X position')
+            plot(tvec, dxhat(1,:) + states.xnom(:,1)', 'r')
+            plot(tnom, states.xnom(:,1)', 'b')
+            legend('LKF', 'Nominal', 'Location', 'Best')
+            
+            subplot(2,1,2)
+            hold on; grid on; box on;
+            ylabel('Y position')
+            xlabel('Time [s]')
+            plot(tvec, dxhat(3,:) + states.xnom(:,3)', 'r')
+            plot(tnom, states.xnom(:,3)', 'b')
+        end
         
         
     case 3  % extended KF (EKF)
         close all;
         
-        T = 2*pi*sqrt(r0^3/mu);           % period, s
-        time = 0:dt:T+dt;                 % time vector, s
-        tf = time(end);                   % final time, s
+        tf = tvec(end);
         
         % State Vector Definition:
         %   x1: X   (x position)
@@ -285,37 +299,30 @@ switch problem
         
         % Inputs to EKF:
         u = [0;0];
-        P0 = 1e4*eye(4);
-        Omega = eye(4);
+        P0 = eye(4);
+        Omega = [0,0; 1,0; 0,0; 0,1];
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
-        Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-        Sv = chol(Q)';
-        R = diag([0.001 0.0001 0.1]);
+        Q = Qtrue;
+        R = Rtrue;
         
-        xnom = [r0.*cos(2*pi.*time./T);
-            -2*pi*r0/T.*sin(2*pi.*time./T);
-            r0.*sin(2*pi.*time./T);
-            2*pi*r0/T.*cos(2*pi.*time./T)];
-        
-        y = zeros(3,length(time));
-        for kk = 1:length(time)
-            % Simulate noisy measurements
-            q = randn([n 1]);
-            xnom(:,kk) = xnom(:,kk) + Sv*q;
-            y(:,kk) = measure(xnom, kk, dt);
-        end
-        
+        [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+
         % Extended Kalman Filter
-        [xhat,sigma] = EKF(xhat0,u,y,P0,Q,Omega,R,n,tf,dt);
+        [xhat,sigma] = EKF(xhat0,u,ydata,P0,Q,Omega,R,n,tf,dt);
         
-        figure()
-        hold on; grid on; box on; axis equal;
-        title('Extended Kalman Filter')
-        plot(xnom(1,:), xnom(3,:), 'b')
-        plot(xhat(1,:), xhat(3,:), 'r')
-        legend('Noisy Data', 'Filtered')
-        
+        if plot_flag
+            figure()
+            hold on; grid on; box on; axis equal;
+            title('Extended Kalman Filter')
+            plot(xnom(:,1), xnom(:,3)', 'b')
+            plot(xhat(1,:), xhat(3,:), 'r')
+            legend('Nominal', 'Filtered')
+            
+            figure()
+            suptitle('States Over Time')
+            sub
+        end
         
         
         

@@ -33,7 +33,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [xhat,sigma] = LinearizedKF(xhat0,input,meas,P,Q,Omega,R,n,tf,dt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [xhat,sigma] = EKF(xhat0,u,y,P0,Q,Omega,R,n,tf,dt)
+function [xhat,sigma, yhat] = EKF(xhat0,u,y,P0,Q,Omega,R,n,tf,dt)
 
 % Standard Gravitational Parameter
 mu = 398600;
@@ -51,8 +51,7 @@ sigma(:,1) = 2*sqrt(diag(P));
 for kk = 1:tf/dt
   Anom = Anominal(xhat(:,kk), mu);
   F = I + dt*Anom;
-  
-  
+
   % time update step (-) superscript
   
   % Use full nonlinear dynamics to estimate the state
@@ -63,11 +62,13 @@ for kk = 1:tf/dt
   P = F*P*F' + Omega*Q*Omega';
 
   % measurement update step (+) superscript
-  [yhat(:,kk+1), H] = measure(xhat(:,kk+1), kk, dt); % NONLINEAR MEASUREMENT
+  [yhat(:,kk+1), H] = measure(xhat(:,kk+1), kk, dt, 'nonlinear'); % NONLINEAR MEASUREMENT
   
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
-  xhat(:,kk+1) = xhat(:,kk+1)+K*(y(:,kk+1)-yhat(:,kk+1)); % a posteriori
-  P = (I-K*H)*P; % TODO: check this equation
+  
+  xhat(:,kk+1) = xhat(:,kk+1)+K*(y(1:3,kk+1)-yhat(:,kk+1)); % a posteriori
+  
+  P = (I-K*H)*P;
   
   % 2sigma error bounds
   sigma(:,kk+1) = 2*sqrt(diag(P));

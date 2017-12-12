@@ -41,10 +41,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,P,Q,Omega,R,n,tf,dt,truth)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu)
-xhat = states.x;        dxhat = states.dx;
+function [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
+xnom = states.xnom';     dxhat = states.dx;
 u = inputs.u;           unom = inputs.unom;
-y = meas.y;             ynom = meas.ynom;
 
 % (nxn) identity matrix
 I = eye(n);
@@ -55,29 +54,23 @@ sigma(:,1) = 2*sqrt(diag(P));
 % input pertrubations
 du(:,1) = u(:,1) - unom(:,1);
 
-% measurement perturbations
-dy = y(:,1) - ynom(:,1);
-
 for kk = 1:tf/dt
-  Anom = Anominal(xhat(:,kk+1),mu);
+  Anom = Anominal(xnom(:,kk+1),mu);
   F = I + dt*Anom;
   
   % C and H?
-  [y(:,kk+1), H] = measure(xnom(:,kk+1), kk, dt); % NONLINEAR MEASUREMENT
+  [ynom, H] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
   
   % time update step (-) superscript
   dxhat(:,kk+1) = F*dxhat(:,kk)+G*du;
   P = F*P*F' + Omega*Q*Omega';
   du = u(:,kk+1) - unom(:,kk+1);
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
-
+  
+  dy = ydata(1:3,kk+1) - ynom;
   % measurement update step (+) superscript
   dxhat(:,kk+1) = dxhat(:,kk+1)+K*(dy-H*dxhat(:,kk+1)); % a posteriori
   P = (I-K*H)*P*(I-K*H)'+K*R*K';
-  
-  
-  
-  dy = y(:,kk+1) - ynom(:,kk+1);
   
   % 2sigma error bounds
   sigma(:,kk+1) = 2*sqrt(diag(P));

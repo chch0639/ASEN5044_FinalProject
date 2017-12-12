@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 3;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -245,31 +245,48 @@ switch problem
         Omega = [0,0; 1,0; 0,0; 0,1];
         u(:,1) = [0;0];
         P = 1e4*eye(n);
-        Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-        R = diag([0.001 0.0001 0.1]);
-        Sv = chol(Q)';
+%         Q = 1e4*diag([0.1 0.01 0.1 0.01]);
+%         R = diag([0.001 0.0001 0.1]);
+        Q = Qtrue;
+        R = Rtrue;
         
         % calculate nominal trajectory
-        [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+        [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
-        % CHECK THIS -- which is x, dx, y, ynom          
-%         for kk = 1:length(time)
-%             % Simulate noisy measurements and state perturbations
-%             states.dx(:,kk) = Sv*randn(n,1);
-%             meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
-%         end          
+        [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu);
         
-        meas.y = ydata;
-        
-        [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);
+        if plot_flag
+            figure()
+            hold on; box on; grid on; axis equal
+            title('Satellite Orbit')
+            plot(states.xnom(:,1)', states.xnom(:,3)', 'r')
+            plot(dxhat(1,:) + states.xnom(:,1)', dxhat(3,:) +  states.xnom(:,3)', 'b')
+            legend('Nominal', 'LKF')
+            xlabel('X position')
+            ylabel('Y position')
+            
+            figure()
+            suptitle('States Over Time')
+            subplot(2,1,1)
+            hold on; grid on; box on;
+            ylabel('X position')
+            plot(tvec, dxhat(1,:) + states.xnom(:,1)', 'r')
+            plot(tnom, states.xnom(:,1)', 'b')
+            legend('LKF', 'Nominal', 'Location', 'Best')
+            
+            subplot(2,1,2)
+            hold on; grid on; box on;
+            ylabel('Y position')
+            xlabel('Time [s]')
+            plot(tvec, dxhat(3,:) + states.xnom(:,3)', 'r')
+            plot(tnom, states.xnom(:,3)', 'b')
+        end
         
         
     case 3  % extended KF (EKF)
         close all;
         
-        T = 2*pi*sqrt(r0^3/mu);           % period, s
-        time = 0:dt:T+dt;                 % time vector, s
-        tf = time(end);                   % final time, s
+        tf = tvec(end);
         
         % State Vector Definition:
         %   x1: X   (x position)
@@ -282,37 +299,61 @@ switch problem
         
         % Inputs to EKF:
         u = [0;0];
-        P0 = 1e4*eye(4);
-        Omega = eye(4);
+        P0 = eye(4);
+        Omega = [0,0; 1,0; 0,0; 0,1];
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
-        Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-        Sv = chol(Q)';
-        R = diag([0.001 0.0001 0.1]);
+        Q = Qtrue;
+        R = Rtrue;
         
-        xnom = [r0.*cos(2*pi.*time./T);
-            -2*pi*r0/T.*sin(2*pi.*time./T);
-            r0.*sin(2*pi.*time./T);
-            2*pi*r0/T.*cos(2*pi.*time./T)];
-        
-        y = zeros(3,length(time));
-        for kk = 1:length(time)
-            % Simulate noisy measurements
-            q = randn([n 1]);
-            xnom(:,kk) = xnom(:,kk) + Sv*q;
-            y(:,kk) = measure(xnom, kk, dt);
-        end
-        
+        [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+
         % Extended Kalman Filter
-        [xhat,sigma] = EKF(xhat0,u,y,P0,Q,Omega,R,n,tf,dt);
+        [xhat,sigma, yhat] = EKF(xhat0,u,ydata,P0,Q,Omega,R,n,tf,dt);
         
-        figure()
-        hold on; grid on; box on; axis equal;
-        title('Extended Kalman Filter')
-        plot(xnom(1,:), xnom(3,:), 'b')
-        plot(xhat(1,:), xhat(3,:), 'r')
-        legend('Noisy Data', 'Filtered')
-        
+        if plot_flag
+            figure()
+            hold on; grid on; box on; axis equal;
+            title('Extended Kalman Filter')
+            plot(xnom(:,1), xnom(:,3)', 'b')
+            plot(xhat(1,:), xhat(3,:), 'r')
+            legend('Nominal', 'Filtered')
+            
+            figure()
+            suptitle('States Over Time')
+            subplot(2,1,1)
+            hold on; box on; grid on;
+            plot(tvec, xhat(1,:), 'r')
+            plot(tnom, xnom(:,1), 'b')
+            ylabel('X position')
+            legend('EKF', 'Nominal')
+            subplot(2,1,2)
+            hold on; box on; grid on;
+            plot(tvec, xhat(3,:), 'r')
+            plot(tnom, xnom(:,3), 'b')
+            ylabel('Y position')
+            xlabel('Time [s]')
+            
+            figure()
+            suptitle('Measurements Over Time')
+            subplot(3,1,1)
+            hold on; box on; grid on;
+            plot(tvec, yhat(1,:), 'r')
+            plot(tvec, ydata(1,:), 'b')
+            ylabel('$\rho$, km')
+            legend('EKF Measurements', 'True Measurements', 'Location', 'Best')
+            subplot(3,1,2)
+            hold on; box on; grid on;
+            plot(tvec, yhat(2,:), 'r')
+            plot(tvec, ydata(2,:), 'b')
+            ylabel('$\dot{\rho}$, km/s')
+            subplot(3,1,3)
+            hold on; box on; grid on;
+            plot(tvec, yhat(3,:), 'r')
+            plot(tvec, ydata(3,:), 'b')
+            ylabel('$\phi$, rad')
+            xlabel('Time [s]')
+        end
         
         
         
