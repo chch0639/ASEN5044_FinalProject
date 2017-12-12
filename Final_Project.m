@@ -25,6 +25,9 @@ dt = 10;                        % s
 rng(100);
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% TODO
+% the linear model is hitting check2 two timesteps before ode45. Wtf?
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch problem
     case 1  % HW8 question 2
@@ -142,7 +145,10 @@ switch problem
                 phi = atan2((XOUT(kk,3) - Ys(ii,kk)), XOUT(kk,1) - Xs(ii,kk));
                 theta = atan2(Ys(ii,kk), Xs(ii,kk));
                 if check1(theta,phi) || check2(theta,phi)|| check3(theta,phi)
-                      
+                  fprintf('XOUT check 1: %1.0f, check 2: %1.0f, check 3: %1.0f\n',...
+                     check1(theta,phi),check2(theta,phi),check3(theta,phi));
+                   fprintf('\t XOUT phi = %1.4f, wrapped phi = %1.4f\n',phi,wrapTo2Pi(phi));
+                   
                     X = XOUT(kk,1);
                     Xdot = XOUT(kk,2);
                     Y = XOUT(kk,3);
@@ -157,6 +163,7 @@ switch problem
                 if check1(theta,phi) || check2(theta,phi)|| check3(theta,phi)     
                    fprintf('xnom check 1: %1.0f, check 2: %1.0f, check 3: %1.0f\n',...
                      check1(theta,phi),check2(theta,phi),check3(theta,phi));
+                 fprintf('\t xnom phi = %1.4f, wrapped phi = %1.4f\n',phi,wrapTo2Pi(phi));
                  
                     X = xnom(1,kk);
                     Xdot = xnom(2,kk);
@@ -171,46 +178,46 @@ switch problem
         end
         
         if plot_flag == 1
-            y_str = {'$\delta_x$, km','$\delta_{\dot{x}}$, km/s','$\delta_y$, km',...
-                '$\delta_{\dot{y}}$, km/s'};
-            figure
-            hold on; box on; grid on;
-            suptitle('Part 1 -- State Perturbations')
-            for ii = 1:n
-                subplot(n,1,ii)
-                hold on; box on; grid on;
-                ylabel(y_str{ii})
-                plot(plot_time, deltax(ii,:),'r')
-                plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
-%                 xlim([plot_time(1) plot_time(end)])
-                xlim([1600 2300])
-                if ii == 1
-                    legend('Linearized', 'ODE45')
-                end
-            end
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('1StateErr', [8,8],'in');
-            end
+%             y_str = {'$\delta_x$, km','$\delta_{\dot{x}}$, km/s','$\delta_y$, km',...
+%                 '$\delta_{\dot{y}}$, km/s'};
+%             figure
+%             hold on; box on; grid on;
+%             suptitle('Part 1 -- State Perturbations')
+%             for ii = 1:n
+%                 subplot(n,1,ii)
+%                 hold on; box on; grid on;
+%                 ylabel(y_str{ii})
+%                 plot(plot_time, deltax(ii,:),'r')
+%                 plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
+% %                 xlim([plot_time(1) plot_time(end)])
+%                 xlim([1600 2300])
+%                 if ii == 1
+%                     legend('Linearized', 'ODE45')
+%                 end
+%             end
+%             if save_flag == 1
+%                 drawnow
+%                 printFigureToPdf('1StateErr', [8,8],'in');
+%             end
             
             
-            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km',...
-                '$\dot{y}$, km/s'};
-            figure
-            hold on; box on; grid on;
-            suptitle('States vs Time, Non-linear and Linearized Approximate Dynamics Simulation')
-            for ii = 1:n
-                subplot(n,1,ii)
-                hold on; box on; grid on;
-                ylabel(y_str{ii})
-                plot(plot_time(1:end-1), deltax(ii,1:end-1)+xnom(ii,:),'r')
-                plot(TOUT', XOUT(:,ii)','--b')
-%                 xlim([plot_time(1) plot_time(end)])
-                xlim([1600 2300])
-                if ii == 1
-                    legend('Linearized', 'ODE45')
-                end
-            end
+%             y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km',...
+%                 '$\dot{y}$, km/s'};
+%             figure
+%             hold on; box on; grid on;
+%             suptitle('States vs Time, Non-linear and Linearized Approximate Dynamics Simulation')
+%             for ii = 1:n
+%                 subplot(n,1,ii)
+%                 hold on; box on; grid on;
+%                 ylabel(y_str{ii})
+%                 plot(plot_time(1:end-1), deltax(ii,1:end-1)+xnom(ii,:),'r')
+%                 plot(TOUT', XOUT(:,ii)','--b')
+% %                 xlim([plot_time(1) plot_time(end)])
+%                 xlim([1600 2300])
+%                 if ii == 1
+%                     legend('Linearized', 'ODE45')
+%                 end
+%             end
             
             
             
@@ -224,14 +231,14 @@ switch problem
                 legend('Linearized', 'ODE45')
                 ylabel('$\rho$, km')
 %                 xlim([0 time(end)])
-                xlim([1600 2300])
+%                 xlim([1600 2300])
                 subplot(3,1,2)
                 hold on; box on; grid on;
                 plot(time, deltay(3*ii-1,:) + ynom(3*ii-1,:), 'r')
                 plot(TOUT', y(3*ii-1,:), 'b--')
                 ylabel('$\dot{\rho}$, km/s')
 %                 xlim([0 time(end)])
-                xlim([1600 2300])
+%                 xlim([1600 2300])
                 subplot(3,1,3)
                 hold on; box on; grid on;
                 plot(time, deltay(3*ii,:) + ynom(3*ii,:), 'r')
@@ -239,45 +246,45 @@ switch problem
                 ylabel('$\phi$, rad')
                 xlabel('Time, s')
 %                 xlim([0 time(end)])
-                xlim([1600 2300])
+%                 xlim([1600 2300])
             end
             if save_flag == 1
                 drawnow
                 printFigureToPdf('1Meas', [8,8],'in');
             end
             
-            figure
-            suptitle('Part 1 -- Measurements Errors Over Time')
-            for ii = 1:stations
-                subplot(3,1,1)
-                hold on; box on; grid on;
-                plot(time, deltay(3*ii-2,:), 'r')
-                plot(TOUT', y(3*ii-2,:) - ynom(3*ii-2,:), 'b--')
-                legend('Linearized', 'ODE45','Location','SouthWest')
-                ylabel('$e_{\rho}$, km')
-%                 xlim([0 time(end)])
-                xlim([1600 2300])
-                subplot(3,1,2)
-                hold on; box on; grid on;
-                plot(time, deltay(3*ii-1,:), 'r')
-                plot(TOUT', y(3*ii-1,:) - ynom(3*ii-1,:), 'b--')
-                ylabel('$e_{\dot{\rho}}$, km/s')
-%                 xlim([0 time(end)])
-                xlim([1600 2300])
-                subplot(3,1,3)
-                hold on; box on; grid on;
-                plot(time, deltay(3*ii,:), 'r')
-                plot(TOUT', y(3*ii,:) - ynom(3*ii,:), 'b--')
-                ylabel('$e_{\phi}$, rad')
-                xlabel('Time, s')
-%                 ylim([-0.06 0.06])
-%                 xlim([0 time(end)])
-                xlim([1600 2300])
-            end
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('1MeasErr', [8,8],'in');
-            end
+%             figure
+%             suptitle('Part 1 -- Measurements Errors Over Time')
+%             for ii = 1:stations
+%                 subplot(3,1,1)
+%                 hold on; box on; grid on;
+%                 plot(time, deltay(3*ii-2,:), 'r')
+%                 plot(TOUT', y(3*ii-2,:) - ynom(3*ii-2,:), 'b--')
+%                 legend('Linearized', 'ODE45','Location','SouthWest')
+%                 ylabel('$e_{\rho}$, km')
+% %                 xlim([0 time(end)])
+% %                 xlim([1600 2300])
+%                 subplot(3,1,2)
+%                 hold on; box on; grid on;
+%                 plot(time, deltay(3*ii-1,:), 'r')
+%                 plot(TOUT', y(3*ii-1,:) - ynom(3*ii-1,:), 'b--')
+%                 ylabel('$e_{\dot{\rho}}$, km/s')
+% %                 xlim([0 time(end)])
+% %                 xlim([1600 2300])
+%                 subplot(3,1,3)
+%                 hold on; box on; grid on;
+%                 plot(time, deltay(3*ii,:), 'r')
+%                 plot(TOUT', y(3*ii,:) - ynom(3*ii,:), 'b--')
+%                 ylabel('$e_{\phi}$, rad')
+%                 xlabel('Time, s')
+% %                 ylim([-0.06 0.06])
+% %                 xlim([0 time(end)])
+% %                 xlim([1600 2300])
+%             end
+%             if save_flag == 1
+%                 drawnow
+%                 printFigureToPdf('1MeasErr', [8,8],'in');
+%             end
         end
         
     case 2  % linearized KF (LKF)
