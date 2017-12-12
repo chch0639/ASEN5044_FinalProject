@@ -46,11 +46,13 @@ phi = zeros(stations,1);
 % Get state of each of the stations
 for ii = 1:stations
     theta0 = (ii-1)*pi/3; % Initial position of each station
-
+    Xs0 = RE*cos(theta0);
+    Ys0 = Re*sin(theta0);
+    
     % X and Y position and velocity of each staion
-    Xs(ii) = RE*cos(omegaE*(k-1)*dt + theta0);
+    Xs(ii) = RE*cos(omegaE*(k-1)*dt + theta0) + Xs0;
     Xs_dot(ii) = -RE*omegaE*sin(omegaE*(k-1)*dt + theta0);
-    Ys(ii) = RE*sin(omegaE*(k-1)*dt + theta0);
+    Ys(ii) = RE*sin(omegaE*(k-1)*dt + theta0) + Ys0;
     Ys_dot(ii) = RE*omegaE*cos(omegaE*(k-1)*dt + theta0);
     
     theta(ii) = atan2(Ys(ii),Xs(ii));
