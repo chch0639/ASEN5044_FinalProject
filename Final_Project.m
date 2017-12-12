@@ -59,6 +59,7 @@ switch problem
 %         time = 0:dt:P+dt;
         time = 0:dt:14000;
         u = [0;0];
+        deltax(:,1) = [0,0.075,0,-0.021];    % random values entered
         
         % calculate nominal trajectory
         [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),time,xnom,options);
@@ -100,12 +101,12 @@ switch problem
                 % linearize C around current state
                 Cnom = Cnominal(xnom(:,kk),xs);
                 
-                phi(ii) = atan2((deltax(3,kk+1)+xnom(3,kk) - Ys(ii,kk)), deltax(1,kk+1)+xnom(1,kk) - Xs(ii,kk));
-                theta(ii) = atan2(Ys(ii,kk), Xs(ii,kk));
+                phi = atan2((deltax(3,kk+1)+xnom(3,kk) - Ys(ii,kk)), deltax(1,kk+1)+xnom(1,kk) - Xs(ii,kk));
+                theta = atan2(Ys(ii,kk), Xs(ii,kk));
                 
-                if (theta(ii)-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2) ||...
-                   (theta(ii)-pi/2 >= phi(ii) && phi(ii) <= theta(ii)+pi/2-2*pi)||...
-                   (theta(ii)+2*pi-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2+2*pi)
+                if (theta-pi/2 <= phi && phi <= theta+pi/2) ||...
+                   (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi)||...
+                   (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
                     Hnom = [Hnom; Cnom];
                 else
                     Hnom = [Hnom; NaN*ones(size(Cnom))];
@@ -138,7 +139,6 @@ switch problem
                 
                 phi = atan2((XOUT(kk,3) - Ys(ii,kk)), XOUT(kk,1) - Xs(ii,kk));
                 theta = atan2(Ys(ii,kk), Xs(ii,kk));
-                
                 if (theta-pi/2 <= phi && phi <= theta+pi/2) ||...
                    (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi)||...
                    (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
@@ -149,7 +149,7 @@ switch problem
                     Ydot = XOUT(kk,4);
                     
                     rho = norm([X-xs(1); Y-xs(3)]);
-                    rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/(rho);
+                    rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/rho;
                     y(3*ii-2:3*ii,kk) = [rho; rho_dot; phi];
                 end
                 
