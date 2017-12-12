@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
+problem = 2;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,33 +107,14 @@ switch problem
             
             % state perturbations
             deltax(:,kk+1) = Fnom*deltax(:,kk) + Gnom*u;
+
+            [deltay(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'linear', deltax(:,kk+1));
+            [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
+            y_linear(:,kk) = deltay(:,kk) + y_nom(:,kk);
             
-            [y_linear(:,kk), Hnom] = measure(xnom(:,kk) + deltax(:,kk), kk, dt);
-            [y_linear(:,kk), Hnom] = measure(xnom(:,kk) + deltax(:,kk), kk, dt);
-            
-%             Hnom = [];
-%             for ii = 1:stations
-%                 % initial conditions for current station
-%                 Xs(ii,kk) = RE*cos(omegaE*(kk-1)*dt + theta0(ii));
-%                 Xs_dot(ii,kk) = -RE*omegaE*sin(omegaE*(kk-1)*dt + theta0(ii));
-%                 Ys(ii,kk) = RE*sin(omegaE*(kk-1)*dt + theta0(ii));
-%                 Ys_dot(ii,kk) = RE*omegaE*cos(omegaE*(kk-1)*dt + theta0(ii));
-%                 xs = [Xs(ii,kk); Xs_dot(ii,kk); Ys(ii,kk); Ys_dot(ii,kk)];
-%                 
-%                 % linearize C around current state
-%                 Cnom = Cnominal(xnom(:,kk),xs);
-%                 
-%                 phi = atan2((deltax(3,kk+1)+xnom(3,kk) - Ys(ii,kk)), deltax(1,kk+1)+xnom(1,kk) - Xs(ii,kk));
-%                 theta = atan2(Ys(ii,kk), Xs(ii,kk));
-%                 
-%                 if check1(theta,phi) || check2(theta,phi)|| check3(theta,phi)
-%                     Hnom = [Hnom; Cnom];
-%                 else
-%                     Hnom = [Hnom; NaN*ones(size(Cnom))];
-%                 end
-%             end
-%             
-%             deltay(:,kk) = Hnom*deltax(:,kk+1);
+%           % Uncomment these lines to use a nonlinear measurement for the linearized system!            
+%             [y_linear(:,kk), ~] = measure(xnom(:,kk)+deltax(:,kk), kk, dt, 'nonlinear');
+%             [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
         end
         
         plot_time = 0:dt:(kk*dt);
@@ -144,56 +125,8 @@ switch problem
         [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init+deltax(:,1)',options);
         % [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init,options);
         for kk = 1:length(TOUT)
-            [y_nonlinear(:,kk), ~] = measure(XOUT(kk,:), kk, dt);
+            [y_nonlinear(:,kk), ~] = measure(XOUT(kk,:), kk, dt, 'nonlinear');
         end
-        
-%         y = NaN*ones(stations*3,length(TOUT));
-%         ynom = NaN*ones(stations*3,length(TOUT));
-%         for kk = 1:length(TOUT)
-%             for ii = 1:stations
-%                 
-%                 % initial conditions for current station
-%                 Xs(ii,kk) = RE*cos(omegaE*(kk-1)*dt + theta0(ii));
-%                 Xs_dot(ii,kk) = -RE*omegaE*sin(omegaE*(kk-1)*dt + theta0(ii));
-%                 Ys(ii,kk) = RE*sin(omegaE*(kk-1)*dt + theta0(ii));
-%                 Ys_dot(ii,kk) = RE*omegaE*cos(omegaE*(kk-1)*dt + theta0(ii));
-%                 
-%                 xs = [Xs(ii,kk); Xs_dot(ii,kk); Ys(ii,kk); Ys_dot(ii,kk)];
-%                 
-%                 phi = atan2((XOUT(kk,3) - Ys(ii,kk)), XOUT(kk,1) - Xs(ii,kk));
-%                 theta = atan2(Ys(ii,kk), Xs(ii,kk));
-%                 if check1(theta,phi) || check2(theta,phi)|| check3(theta,phi)
-%                   fprintf('XOUT check 1: %1.0f, check 2: %1.0f, check 3: %1.0f\n',...
-%                      check1(theta,phi),check2(theta,phi),check3(theta,phi));
-%                    fprintf('\t XOUT phi = %1.4f, wrapped phi = %1.4f\n',phi,wrapTo2Pi(phi));
-%                    
-%                     X = XOUT(kk,1);
-%                     Xdot = XOUT(kk,2);
-%                     Y = XOUT(kk,3);
-%                     Ydot = XOUT(kk,4);
-%                     
-%                     rho = norm([X-xs(1); Y-xs(3)]);
-%                     rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/rho;
-%                     y(3*ii-2:3*ii,kk) = [rho; rho_dot; phi];
-%                 end
-%                 
-%                 phi = atan2((xnom(3,kk) - Ys(ii,kk)), xnom(1,kk) - Xs(ii,kk));
-%                 if check1(theta,phi) || check2(theta,phi)|| check3(theta,phi)     
-%                    fprintf('xnom check 1: %1.0f, check 2: %1.0f, check 3: %1.0f\n',...
-%                      check1(theta,phi),check2(theta,phi),check3(theta,phi));
-%                  fprintf('\t xnom phi = %1.4f, wrapped phi = %1.4f\n',phi,wrapTo2Pi(phi));
-%                  
-%                     X = xnom(1,kk);
-%                     Xdot = xnom(2,kk);
-%                     Y = xnom(3,kk);
-%                     Ydot = xnom(4,kk);
-%                     
-%                     rho = norm([X-xs(1); Y-xs(3)]);
-%                     rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/rho;
-%                     ynom(3*ii-2:3*ii,kk) = [rho; rho_dot; phi];
-%                 end
-%             end
-%         end
         
         if plot_flag == 1
             y_str = {'$\delta_x$, km','$\delta_{\dot{x}}$, km/s','$\delta_y$, km',...
@@ -207,6 +140,7 @@ switch problem
                 ylabel(y_str{ii})
                 plot(plot_time, deltax(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
+                % plot(TOUT', XOUT(:,ii)' - (xnom(ii,:) + deltax(ii,1:end-1)), 'r') - this was wrong
                 if ii == 1
                     legend('Linearized', 'ODE45')
                 end
@@ -235,27 +169,25 @@ switch problem
                 end
             end
             
-            
-%             
-figure
-suptitle('Part 1 -- Measurements Over Time')
-subplot(3,1,1)
-hold on; box on; grid on;
-plot(time, y_linear(1,:), 'r')
-plot(TOUT', y_nonlinear(1,:), 'b')
-legend('Linearized', 'ODE45')
-ylabel('$\rho$, km')
-subplot(3,1,2)
-hold on; box on; grid on;
-plot(time, y_linear(2,:), 'r')
-plot(TOUT', y_nonlinear(2,:), 'b--')
-ylabel('$\dot{\rho}$, km/s')
-subplot(3,1,3)
-hold on; box on; grid on;
-plot(time, y_linear(3,:), 'r')
-plot(TOUT', y_nonlinear(3,:), 'b--')
-ylabel('$\phi$, rad')
-xlabel('Time, s')
+            figure
+            suptitle('Part 1 -- Measurements Over Time')
+            subplot(3,1,1)
+            hold on; box on; grid on;
+            plot(time, y_linear(1,:), 'r')
+            plot(TOUT', y_nonlinear(1,:), 'b--')
+            legend('Linearized', 'ODE45')
+            ylabel('$\rho$, km')
+            subplot(3,1,2)
+            hold on; box on; grid on;
+            plot(time, y_linear(2,:), 'r')
+            plot(TOUT', y_nonlinear(2,:), 'b--')
+            ylabel('$\dot{\rho}$, km/s')
+            subplot(3,1,3)
+            hold on; box on; grid on;
+            plot(time, y_linear(3,:), 'r')
+            plot(TOUT', y_nonlinear(3,:), 'b--')
+            ylabel('$\phi$, rad')
+            xlabel('Time, s')
 
 
 %             if save_flag == 1
@@ -298,16 +230,14 @@ xlabel('Time, s')
         end
         
     case 2  % linearized KF (LKF)
-        T = 2*pi*sqrt(r0^3/mu);           % period, s
-        time = 0:dt:T+dt;                 % time vector, s
-        tf = time(end);                   % final time, s
+        tf = tvec(end);
         
         % initialize matrices
-        states.x = zeros(n,length(time));
+        states.x = zeros(n,length(tvec));
         states.x(:,1) = [r0; 0; 0; r0*sqrt(mu/r0^3)];
-        states.dx = zeros(n,length(time));
+        states.dx = zeros(n,length(tvec));
         states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
-        inputs.u = zeros(m,length(time));
+        inputs.u = zeros(m,length(tv));
         inputs.unom = zeros(m,length(time));
         meas.y = zeros(p,length(time));
         meas.ynom = zeros(p,length(time));

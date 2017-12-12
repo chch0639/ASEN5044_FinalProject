@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
+problem = 2;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,6 +23,12 @@ RE = 6378;                      % km
 r0 = 6678;                      % km
 dt = 10;                        % s
 rng(100);
+x0 = r0;                        % km
+xdot0 = 0;                      % km/s
+y0 = 0;                         % km
+ydot0 = r0*sqrt(mu/r0^3);       % km/s
+xnom = [x0,xdot0,y0,ydot0];     % initial state
+x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
 
 % data:
@@ -42,13 +48,6 @@ load Truth.mat
 
 switch problem
     case 1  % HW8 question 2
-        x0 = r0;                        % km
-        xdot0 = 0;                      % km/s
-        y0 = 0;                         % km
-        ydot0 = r0*sqrt(mu/r0^3);       % km/s
-        xnom = [x0,xdot0,y0,ydot0];     % initial state
-        x_init = xnom;
-        
         %% part a
         % CT LTI
         Anom = Anominal(xnom,mu);
@@ -107,10 +106,14 @@ switch problem
             
             % state perturbations
             deltax(:,kk+1) = Fnom*deltax(:,kk) + Gnom*u;
+
+            [deltay(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'linear', deltax(:,kk+1));
+            [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
+            y_linear(:,kk) = deltay(:,kk) + y_nom(:,kk);
             
-            [y_linear(:,kk), ~] = measure(xnom(:,kk) + deltax(:,kk), kk, dt);
-            [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt);
-%             deltay(:,kk) = y_linear(:,kk) - y_nom(:,kk);
+%           % Uncomment these lines to use a nonlinear measurement for the linearized system!            
+%             [y_linear(:,kk), ~] = measure(xnom(:,kk)+deltax(:,kk), kk, dt, 'nonlinear');
+%             [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
         end
         
         plot_time = 0:dt:(kk*dt);
@@ -121,7 +124,7 @@ switch problem
         [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init+deltax(:,1)',options);
         % [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init,options);
         for kk = 1:length(TOUT)
-            [y_nonlinear(:,kk), ~] = measure(XOUT(kk,:), kk, dt);
+            [y_nonlinear(:,kk), ~] = measure(XOUT(kk,:), kk, dt, 'nonlinear');
         end
         
         if plot_flag == 1
@@ -136,6 +139,7 @@ switch problem
                 ylabel(y_str{ii})
                 plot(plot_time, deltax(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
+                % plot(TOUT', XOUT(:,ii)' - (xnom(ii,:) + deltax(ii,1:end-1)), 'r') - this was wrong
                 if ii == 1
                     legend('Linearized', 'ODE45')
                 end
@@ -164,14 +168,12 @@ switch problem
                 end
             end
             
-            
-            %
             figure
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
             hold on; box on; grid on;
             plot(time, y_linear(1,:), 'r')
-            plot(TOUT', y_nonlinear(1,:), 'b')
+            plot(TOUT', y_nonlinear(1,:), 'b--')
             legend('Linearized', 'ODE45')
             ylabel('$\rho$, km')
             subplot(3,1,2)
@@ -227,19 +229,17 @@ switch problem
         end
         
     case 2  % linearized KF (LKF)
-        T = 2*pi*sqrt(r0^3/mu);           % period, s
-        time = 0:dt:T+dt;                 % time vector, s
-        tf = time(end);                   % final time, s
+        tf = tvec(end);
         
         % initialize matrices
-        states.x = zeros(n,length(time));
+        states.x = zeros(n,length(tvec));
         states.x(:,1) = [r0; 0; 0; r0*sqrt(mu/r0^3)];
-        states.dx = zeros(n,length(time));
+        states.dx = zeros(n,length(tvec));
         states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
-        inputs.u = zeros(m,length(time));
-        inputs.unom = zeros(m,length(time));
-        meas.y = zeros(p,length(time));
-        meas.ynom = zeros(p,length(time));
+        inputs.u = zeros(m,length(tvec));
+        inputs.unom = zeros(m,length(tvec));
+        meas.y = zeros(p,length(tvec));
+        meas.ynom = zeros(p,length(tvec));
         B = [0,0; 1,0; 0,0; 0,1];
         G = dt*B;
         Omega = [0,0; 1,0; 0,0; 0,1];
@@ -250,11 +250,8 @@ switch problem
         Sv = chol(Q)';
         
         % calculate nominal trajectory
-        states.x = [r0.*cos(2*pi.*time./T);
-                    -2*pi*r0/T.*sin(2*pi.*time./T);
-                    r0.*sin(2*pi.*time./T);
-                    2*pi*r0/T.*cos(2*pi.*time./T)];
-                  
+        [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+        
         % CHECK THIS -- which is x, dx, y, ynom          
 %         for kk = 1:length(time)
 %             % Simulate noisy measurements and state perturbations
@@ -262,6 +259,7 @@ switch problem
 %             meas.y(:,kk) = measure(states.dx(:,kk), kk, dt);
 %         end          
         
+        meas.y = ydata;
         
         [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,Omega,P,Q,R,n,tf,dt,mu);
         
