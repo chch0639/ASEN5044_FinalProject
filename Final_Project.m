@@ -8,7 +8,7 @@
 clearvars; %plotsettings(14,2);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 3;
+problem = 1;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -22,6 +22,8 @@ omegaE = 2*pi/86400;            % rad/s
 RE = 6378;                      % km
 r0 = 6678;                      % km
 dt = 10;                        % s
+rng(100);
+options = odeset('RelTol',1e-12,'AbsTol',1e-12);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch problem
@@ -59,13 +61,17 @@ switch problem
         % convert to DT LTI
         dt = 10;                    % s, given
         P = 2*pi*sqrt(r0^3/mu);
-        time = 0:dt:P+dt;
-        
+%         time = 0:dt:P+dt;
+        time = 0:dt:14000;
+        u = [0;0];
         % calculate nominal trajectory
-        xnom = [r0.*cos(2*pi.*time./P);
-            -2*pi*r0/P.*sin(2*pi.*time./P);
-            r0.*sin(2*pi.*time./P);
-            2*pi*r0/P.*cos(2*pi.*time./P)];
+%         xnom = [r0.*cos(2*pi.*time./P);
+%                 -2*pi*r0/P.*sin(2*pi.*time./P);
+%                 r0.*sin(2*pi.*time./P);
+%                 2*pi*r0/P.*cos(2*pi.*time./P)];
+        
+        [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),time,xnom,options);
+        xnom = xnom';
         
         Fnom = eye(n) + dt*Anom;
         Gnom = dt*Bnom;
@@ -73,10 +79,10 @@ switch problem
         Omeganom = [0,0; 1,0; 0,0; 0,1];
         
         %% part c
-        u = [0;0];
+%         u = [0;0];
         
         deltax = zeros(n,length(time));
-        deltax(:,1) = ones(4,1)*0.001;    % random values entered
+        deltax(:,1) = [0,0.075,0,-0.021];    % random values entered
         
         % initial conditions for each tracking station
         for ii = 1:stations
@@ -109,8 +115,8 @@ switch problem
                 theta(ii) = atan2(Ys(ii,kk), Xs(ii,kk));
                 
                 if (theta(ii)-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2) ||...
-                        (theta(ii)-pi/2 >= phi(ii) && phi(ii) <= theta(ii)+pi/2-2*pi)||...
-                        (theta(ii)+2*pi-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2+2*pi)
+                   (theta(ii)-pi/2 >= phi(ii) && phi(ii) <= theta(ii)+pi/2-2*pi)||...
+                   (theta(ii)+2*pi-pi/2 <= phi(ii) && phi(ii) <= theta(ii)+pi/2+2*pi)
                     Hnom = [Hnom; Cnom];
                 else
                     Hnom = [Hnom; NaN*ones(size(Cnom))];
@@ -149,9 +155,10 @@ switch problem
                 phi = atan2((XOUT(kk,3) - Ys(ii,kk)), XOUT(kk,1) - Xs(ii,kk));
                 theta = atan2(Ys(ii,kk), Xs(ii,kk));
                 
-                if theta-pi/2 <= phi && phi <= theta+pi/2   ||...
-                        (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi) ||...
-                        (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
+                if (theta-pi/2 <= phi && phi <= theta+pi/2) ||...
+                   (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi)||...
+                   (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
+                      
                     X = XOUT(kk,1);
                     Xdot = XOUT(kk,2);
                     Y = XOUT(kk,3);
@@ -163,9 +170,9 @@ switch problem
                 end
                 
                 phi = atan2((xnom(3,kk) - Ys(ii,kk)), xnom(1,kk) - Xs(ii,kk));
-                if theta-pi/2 <= phi && phi <= theta+pi/2   ||...
-                        (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi) ||...
-                        (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
+                if (theta-pi/2 <= phi && phi <= theta+pi/2) ||...
+                   (theta-pi/2 >= phi && phi <= theta+pi/2-2*pi)||...
+                   (theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi)
                     X = xnom(1,kk);
                     Xdot = xnom(2,kk);
                     Y = xnom(3,kk);
@@ -179,11 +186,11 @@ switch problem
         end
         
         if plot_flag == 1
-            y_str = {'$\delta_x$, m','$\delta_{\dot{x}}$, km/s','$\delta_y$, m',...
+            y_str = {'$\delta_x$, km','$\delta_{\dot{x}}$, km/s','$\delta_y$, km',...
                 '$\delta_{\dot{y}}$, km/s'};
             figure
             hold on; box on; grid on;
-            suptitle('Pat 1 -- State Perturbations')
+            suptitle('Part 1 -- State Perturbations')
             for ii = 1:n
                 subplot(n,1,ii)
                 hold on; box on; grid on;
@@ -199,6 +206,26 @@ switch problem
                 drawnow
                 printFigureToPdf('1StateErr', [8,8],'in');
             end
+            
+            
+            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km',...
+                '$\dot{y}$, km/s'};
+            figure
+            hold on; box on; grid on;
+            suptitle('Part 1 -- State vs Time')
+            for ii = 1:n
+                subplot(n,1,ii)
+                hold on; box on; grid on;
+                ylabel(y_str{ii})
+                plot(plot_time(1:end-1), deltax(ii,1:end-1)+xnom(ii,:),'r')
+                plot(TOUT', XOUT(:,ii)','--b')
+                xlim([plot_time(1) plot_time(end)])
+                if ii == 1
+                    legend('Linearized', 'ODE45')
+                end
+            end
+            
+            
             
             figure
             suptitle('Part 1 -- Measurements Over Time')
@@ -251,7 +278,7 @@ switch problem
                 plot(TOUT', y(3*ii,:) - ynom(3*ii,:), 'b--')
                 ylabel('$e_{\phi}$, rad')
                 xlabel('Time, s')
-                ylim([-0.06 0.06])
+%                 ylim([-0.06 0.06])
                 xlim([0 time(end)])
             end
             if save_flag == 1
