@@ -35,11 +35,6 @@ switch problem
         xnom = [x0,xdot0,y0,ydot0];     % initial state
         x_init = xnom;
         
-        % find all initial conditions for each station, [km, km/s, km, km/s]
-        for ii = 1:stations
-            xs0(:,ii) = [RE*cos((ii-1)*(pi/3)),0,RE*sin((ii-1)*(pi/3)),0];
-        end
-        
         %% part a
         % CT LTI
         Anom = Anominal(xnom,mu);
@@ -51,7 +46,7 @@ switch problem
         Cnom = zeros(p,n,stations);
         for ii = 1:stations
             % initial conditions for current station
-            xs = xs0(:,ii);
+            xs = [RE*cos((ii-1)*(pi/3)),0,RE*sin((ii-1)*(pi/3)),0];
             
             Cnom(:,:,ii) = Cnominal(xnom,xs);
         end
@@ -64,12 +59,8 @@ switch problem
 %         time = 0:dt:P+dt;
         time = 0:dt:14000;
         u = [0;0];
-        % calculate nominal trajectory
-%         xnom = [r0.*cos(2*pi.*time./P);
-%                 -2*pi*r0/P.*sin(2*pi.*time./P);
-%                 r0.*sin(2*pi.*time./P);
-%                 2*pi*r0/P.*cos(2*pi.*time./P)];
         
+        % calculate nominal trajectory
         [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),time,xnom,options);
         xnom = xnom';
         
@@ -79,8 +70,6 @@ switch problem
         Omeganom = [0,0; 1,0; 0,0; 0,1];
         
         %% part c
-%         u = [0;0];
-        
         deltax = zeros(n,length(time));
         deltax(:,1) = [0,0.075,0,-0.021];    % random values entered
         
@@ -131,11 +120,6 @@ switch problem
         % DT nonlinear model
         x0 = x_init;
         
-        % solve for initial positions of the tracking stations
-        for ii = 1:stations
-            xs0(1,ii) = RE*cos((ii-1)*(pi/3));      % km
-            xs0(2,ii) = RE*sin((ii-1)*(pi/3));      % km
-        end
         options = odeset('RelTol',1e-12,'AbsTol',1e-12);
         [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,xnom(:,1)+deltax(:,1),options);
         
@@ -179,7 +163,7 @@ switch problem
                     Ydot = xnom(4,kk);
                     
                     rho = norm([X-xs(1); Y-xs(3)]);
-                    rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/(rho);
+                    rho_dot = ((X-xs(1))*(Xdot - xs(2)) + (Y-xs(3))*(Ydot-xs(4)))/rho;
                     ynom(3*ii-2:3*ii,kk) = [rho; rho_dot; phi];
                 end
             end
@@ -212,7 +196,7 @@ switch problem
                 '$\dot{y}$, km/s'};
             figure
             hold on; box on; grid on;
-            suptitle('Part 1 -- State vs Time')
+            suptitle('States vs Time, Non-linear and Linearized Approximate Dynamics Simulation')
             for ii = 1:n
                 subplot(n,1,ii)
                 hold on; box on; grid on;
