@@ -316,7 +316,7 @@ switch problem
             hold on; grid on; box on; axis equal;
             title('Extended Kalman Filter')
             plot(xnom(:,1), xnom(:,3)', 'b')
-            plot(xhat(1,:), xhat(3,:), 'r')
+            plot(xhat(1,:), xhat(3,:), 'r--')
             legend('Nominal', 'Filtered')
             
             figure()
@@ -324,13 +324,13 @@ switch problem
             subplot(2,1,1)
             hold on; box on; grid on;
             plot(tvec, xhat(1,:), 'r')
-            plot(tnom, xnom(:,1), 'b')
+            plot(tnom, xnom(:,1), 'b--')
             ylabel('X position')
             legend('EKF', 'Nominal')
             subplot(2,1,2)
             hold on; box on; grid on;
             plot(tvec, xhat(3,:), 'r')
-            plot(tnom, xnom(:,3), 'b')
+            plot(tnom, xnom(:,3), 'b--')
             ylabel('Y position')
             xlabel('Time [s]')
             
@@ -339,18 +339,18 @@ switch problem
             subplot(3,1,1)
             hold on; box on; grid on;
             plot(tvec, yhat(1,:), 'r')
-            plot(tvec, ydata(1,:), 'b')
+            plot(tvec, ydata(1,:), 'b--')
             ylabel('$\rho$, km')
             legend('EKF Measurements', 'True Measurements', 'Location', 'Best')
             subplot(3,1,2)
             hold on; box on; grid on;
             plot(tvec, yhat(2,:), 'r')
-            plot(tvec, ydata(2,:), 'b')
+            plot(tvec, ydata(2,:), 'b--')
             ylabel('$\dot{\rho}$, km/s')
             subplot(3,1,3)
             hold on; box on; grid on;
             plot(tvec, yhat(3,:), 'r')
-            plot(tvec, ydata(3,:), 'b')
+            plot(tvec, ydata(3,:), 'b--')
             ylabel('$\phi$, rad')
             xlabel('Time [s]')
         end

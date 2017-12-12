@@ -69,6 +69,9 @@ for kk = 1:tf/dt
   
   dy = ydata(1:3,kk+1) - ynom;
   % measurement update step (+) superscript
+  if isequal(dy, zeros(size(dy))) || isequal(H*dxhat(:,kk+1), zeros(size(H*dxhat(:,kk+1))))
+      K = zeros(size(K));
+  end
   dxhat(:,kk+1) = dxhat(:,kk+1)+K*(dy-H*dxhat(:,kk+1)); % a posteriori
   P = (I-K*H)*P*(I-K*H)'+K*R*K';
   

@@ -66,6 +66,9 @@ for kk = 1:tf/dt
   
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
   
+  if isequal(y(1:3,kk+1), zeros(size(y(1:3,kk+1)))) || isequal(yhat(:,kk+1), zeros(size(yhat(:,kk+1))))
+      K = zeros(size(K));
+  end
   xhat(:,kk+1) = xhat(:,kk+1)+K*(y(1:3,kk+1)-yhat(:,kk+1)); % a posteriori
   
   P = (I-K*H)*P;
