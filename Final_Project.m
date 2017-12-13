@@ -9,7 +9,7 @@ clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
 problem = 1;
-plot_flag = 1;
+plot_flag = 0;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % constants
@@ -41,9 +41,6 @@ load Truth.mat
 %   measLabels  (strings describing data)
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% TODO
-% the linear model is hitting check2 two timesteps before ode45. Wtf?
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch problem
@@ -77,7 +74,7 @@ switch problem
         % calculate nominal trajectory
         [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         xnom = xnom';
-        
+
         Fnom = eye(n) + dt*Anom;
         Gnom = dt*Bnom;
         
@@ -97,7 +94,7 @@ switch problem
             theta0(ii) = (ii-1)*pi/3;
         end
         
-        for kk = 1:length(time)
+        for kk = 1:length(time)-1
             % linearize A around current state
             Anom = Anominal(xnom(:,kk),mu);
             
@@ -107,16 +104,30 @@ switch problem
             % state perturbations
             deltax(:,kk+1) = Fnom*deltax(:,kk) + Gnom*u;
 
-            [deltay(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'linear', deltax(:,kk+1));
-            [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
-            y_linear(:,kk) = deltay(:,kk) + y_nom(:,kk);
-            
+            [deltay(:,kk), ~] = measure(xnom(:,kk+1), kk, dt, 'linear', deltax(:,kk+1));
+            [y_nom(:,kk), ~] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
+             y_linear(:,kk) = deltay(:,kk) + y_nom(:,kk);
+
 %           % Uncomment these lines to use a nonlinear measurement for the linearized system!            
 %             [y_linear(:,kk), ~] = measure(xnom(:,kk)+deltax(:,kk), kk, dt, 'nonlinear');
 %             [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
         end
-        
-        plot_time = 0:dt:(kk*dt);
+
+        % plot linear measurements as well as error compared to data
+        figure
+        suptitle('Linear Measurement Errors')
+        subplot(2,1,1)
+        hold on; box on; grid on;
+        plot(tvec(2:end),y_linear(1,:),'r')
+        ylabel('$\rho$, km')
+        xlim([tvec(1) tvec(end)])
+        subplot(2,1,2)
+        hold on; box on; grid on;
+        plot(tvec(2:end),ydata(1,2:end)-y_linear(1,:),'r')
+        ylabel('$\epsilon_{\rho}$, km')
+        xlabel('Time, s')
+        xlim([tvec(1) tvec(end)])
+        ylim([-200 200])
         
         % DT nonlinear model
         x0 = x_init;
@@ -137,7 +148,7 @@ switch problem
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
-                plot(plot_time, deltax(ii,:),'r')
+                plot(tvec, deltax(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
                 % plot(TOUT', XOUT(:,ii)' - (xnom(ii,:) + deltax(ii,1:end-1)), 'r') - this was wrong
                 if ii == 1
@@ -159,7 +170,7 @@ switch problem
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
-                plot(plot_time(1:end-1), deltax(ii,1:end-1)+xnom(ii,:),'r')
+                plot(tvec, deltax(ii,1:end)+xnom(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)','--b')
 %                 xlim([plot_time(1) plot_time(end)])
 %                 xlim([1600 2300])
@@ -172,19 +183,19 @@ switch problem
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
             hold on; box on; grid on;
-            plot(time, y_linear(1,:), 'r')
-            plot(TOUT', y_nonlinear(1,:), 'b--')
-            legend('Linearized', 'ODE45')
+            plot(time(2:end), y_linear(1,:), 'r')
+%             plot(TOUT', y_nonlinear(1,:), 'b--')
+%             legend('Linearized', 'ODE45')
             ylabel('$\rho$, km')
             subplot(3,1,2)
             hold on; box on; grid on;
-            plot(time, y_linear(2,:), 'r')
-            plot(TOUT', y_nonlinear(2,:), 'b--')
+            plot(tvec(2:end), y_linear(2,:), 'r')
+%             plot(TOUT', y_nonlinear(2,:), 'b--')
             ylabel('$\dot{\rho}$, km/s')
             subplot(3,1,3)
             hold on; box on; grid on;
-            plot(time, y_linear(3,:), 'r')
-            plot(TOUT', y_nonlinear(3,:), 'b--')
+            plot(tvec(2:end), y_linear(3,:), 'r')
+%             plot(TOUT', y_nonlinear(3,:), 'b--')
             ylabel('$\phi$, rad')
             xlabel('Time, s')
 

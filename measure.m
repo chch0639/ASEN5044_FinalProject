@@ -65,6 +65,11 @@ for ii = 1:stations
         dy = deltax(3);
         dydot = deltax(4);
         
+        X = xhat(1)+dx;
+        Xdot = xhat(2)+dxdot;
+        Y = xhat(3)+dy;
+        Ydot = xhat(4)+dydot;
+        
         theta(ii) = atan2(Ys(ii),Xs(ii));
         phi(ii) = atan2((Y+dy-Ys(ii)), (X+dx-Xs(ii)));
         

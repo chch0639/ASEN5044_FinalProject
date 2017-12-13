@@ -19,7 +19,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function Anom = Anominal(xnom,mu)
 % 2D range, km
-r = (xnom(1)^2 + xnom(3)^2)^(1/2);
+r = norm([xnom(1);xnom(3)]);
 
 % build row 1
 df1_dx1 = 0;
