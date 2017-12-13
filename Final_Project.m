@@ -167,7 +167,7 @@ switch problem
                     legend('Linearized', 'ODE45')
                 end
             end
-            
+       
             figure
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
