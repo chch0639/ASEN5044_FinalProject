@@ -8,8 +8,8 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
-plot_flag = 0;
+problem = 2;
+plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % constants
@@ -22,7 +22,6 @@ omegaE = 2*pi/86400;            % rad/s
 RE = 6378;                      % km
 r0 = 6678;                      % km
 dt = 10;                        % s
-rng(100);
 x0 = r0;                        % km
 xdot0 = 0;                      % km/s
 y0 = 0;                         % km
@@ -240,13 +239,15 @@ switch problem
         end
         
     case 2  % linearized KF (LKF)
+        T = 2*pi*sqrt(r0^3/mu);
+        tvec = 0:dt:T;
         tf = tvec(end);
         
         % initialize matrices
         states.x = zeros(n,length(tvec));
-        states.x(:,1) = [r0; 0; 0; r0*sqrt(mu/r0^3)];
+        states.x(:,1) = x_init;
         states.dx = zeros(n,length(tvec));
-        states.dx(:,1) = ones(4,1)*0.001;       % initial state perturbations
+        states.dx(:,1) = [0,0.075,0,-0.021];       % initial state perturbations
         inputs.u = zeros(m,length(tvec));
         inputs.unom = zeros(m,length(tvec));
         meas.y = zeros(p,length(tvec));
@@ -255,9 +256,7 @@ switch problem
         G = dt*B;
         Omega = [0,0; 1,0; 0,0; 0,1];
         u(:,1) = [0;0];
-        P = 1e4*eye(n);
-%         Q = 1e4*diag([0.1 0.01 0.1 0.01]);
-%         R = diag([0.001 0.0001 0.1]);
+        P = 1e1*eye(n);
         Q = Qtrue;
         R = Rtrue;
         
@@ -267,30 +266,58 @@ switch problem
         [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu);
         
         if plot_flag
-            figure()
+            figure
             hold on; box on; grid on; axis equal
             title('Satellite Orbit')
-            plot(states.xnom(:,1)', states.xnom(:,3)', 'r')
-            plot(dxhat(1,:) + states.xnom(:,1)', dxhat(3,:) +  states.xnom(:,3)', 'b')
-            legend('Nominal', 'LKF')
-            xlabel('X position')
-            ylabel('Y position')
+            plot(states.xnom(:,1)', states.xnom(:,3)', 'b')
+            plot(dxhat(1,:) + states.xnom(:,1)', dxhat(3,:) +  states.xnom(:,3)', 'r')
+            legend('Nominal', 'LKF','Location','EastOutside')
+            xlabel('x, km')
+            ylabel('y, km')
             
-            figure()
-            suptitle('States Over Time')
+            figure
+            suptitle('States vs. Time')
             subplot(2,1,1)
             hold on; grid on; box on;
-            ylabel('X position')
+            ylabel('x, km')
             plot(tvec, dxhat(1,:) + states.xnom(:,1)', 'r')
             plot(tnom, states.xnom(:,1)', 'b')
             legend('LKF', 'Nominal', 'Location', 'Best')
             
             subplot(2,1,2)
             hold on; grid on; box on;
-            ylabel('Y position')
-            xlabel('Time [s]')
+            ylabel('y, km')
+            xlabel('Time, s')
             plot(tvec, dxhat(3,:) + states.xnom(:,3)', 'r')
             plot(tnom, states.xnom(:,3)', 'b')
+            
+            y_str = {'$e_{x}$, km','$e_{\dot{x}}$, km/s','$e_{y}$, km','$e_{\dot{y}}$, km/s'};
+            figure
+            suptitle('State Errors vs. Time for Linearized KF')
+            hold on; grid on; box on;
+            for ii = 1:n
+              subplot(4,1,ii)
+              hold on; grid on; box on;
+              % plot(tvec,sigma(ii,:),'--k')
+              plot(tvec,dxhat(ii,:),'r')
+              % plot(tvec,-sigma(ii,:),'--k')
+              ylabel(y_str{ii})
+            end
+            xlabel('Time, s')
+            
+            y_str = {'$2\sigma_{x}$, km','$2\sigma_{\dot{x}}$, km/s',...
+                     '$2\sigma_{y}$, km','$2\sigma_{\dot{y}}$, km/s'};
+            figure
+            suptitle('2$\sigma$ Bounds vs. Time for Linearized KF')
+            hold on; grid on; box on;
+            for ii = 1:n
+              subplot(4,1,ii)
+              hold on; grid on; box on;
+              plot(tvec,sigma(ii,:),'k')
+              ylabel(y_str{ii})
+            end
+            xlabel('Time, s')
+            
         end
         
         
@@ -366,10 +393,7 @@ switch problem
             xlabel('Time [s]')
         end
         
-        
-        
-        
-        
+         
     case 4  % estimate state trajectory for LKF and EKF
         
         

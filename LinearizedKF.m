@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Author:   Chris Chamberlain
 % Written:  07 Dec 2017
-% Revised:  07 Dec 2017
+% Revised:  13 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose:  ASEN 5044 - Statistical Estimation for Dynamical Systems Final
 %           Project. The Kalman Filter equations were obtained from Simon, 
@@ -55,10 +55,11 @@ sigma(:,1) = 2*sqrt(diag(P));
 du(:,1) = u(:,1) - unom(:,1);
 
 for kk = 1:tf/dt
-  Anom = Anominal(xnom(:,kk+1),mu);
+  % F_k
+  Anom = Anominal(xnom(:,kk),mu);
   F = I + dt*Anom;
   
-  % C and H?
+  % ynom_k+1, H_k+1
   [ynom, H] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
   
   % time update step (-) superscript
@@ -69,7 +70,11 @@ for kk = 1:tf/dt
   
   dy = ydata(1:3,kk+1) - ynom;
   % measurement update step (+) superscript
-  if isequal(dy, zeros(size(dy))) || isequal(H*dxhat(:,kk+1), zeros(size(H*dxhat(:,kk+1))))
+  if isequal(dy,zeros(size(dy))) ||...
+     isequal(H*dxhat(:,kk+1),zeros(size(H*dxhat(:,kk+1)))) ||...
+     isequal(ydata(1:3,kk+1),zeros(size(dy))) ||...
+     isequal(ynom,zeros(size(dy)))
+   
       K = zeros(size(K));
   end
   dxhat(:,kk+1) = dxhat(:,kk+1)+K*(dy-H*dxhat(:,kk+1)); % a posteriori
