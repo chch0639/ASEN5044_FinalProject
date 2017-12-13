@@ -38,8 +38,6 @@ load Truth.mat
 %   tvec        (vector of times)
 %   ydata       (matrix of true measurements)
 %   measLabels  (strings describing data)
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch problem
@@ -63,12 +61,7 @@ switch problem
         
         %% part b
         % convert to DT LTI
-        dt = 10;                    % s, given
-        P = 2*pi*sqrt(r0^3/mu);
-%         time = 0:dt:P+dt;
-        time = 0:dt:14000;
         u = [0;0];
-        deltax(:,1) = [0,0.075,0,-0.021];    % random values entered
         
         % calculate nominal trajectory
         [~,xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
@@ -80,20 +73,16 @@ switch problem
         Omeganom = [0,0; 1,0; 0,0; 0,1];
         
         %% part c
-        % satellite visibilty checks
-        check1 = @(theta,phi)theta-pi/2 <= phi && phi <= theta+pi/2;
-        check2 = @(theta,phi)theta-pi/2 >= phi && phi <= theta+pi/2-2*pi;
-        check3 = @(theta,phi)theta+2*pi-pi/2 <= phi && phi <= theta+pi/2+2*pi;
-        
-        deltax = zeros(n,length(time));
-        deltax(:,1) = [0,0.075,0,-0.021];    % random values entered
+        % initial perturbations
+        deltax = zeros(n,length(tvec));
+        deltax(:,1) = [0,0.075,0,-0.021];
         
         % initial conditions for each tracking station
         for ii = 1:stations
             theta0(ii) = (ii-1)*pi/3;
         end
         
-        for kk = 1:length(time)
+        for kk = 1:length(tvec)
             % linearize A around current state
             Anom = Anominal(xnom(:,kk),mu);
             
@@ -122,16 +111,16 @@ switch problem
         ylabel('$\rho$, km')
         xlabel('Time, s')
         xlim([tvec(1) tvec(end)])
-        
+
         % DT nonlinear model
-        x0 = x_init;
-        deltax(:,1) = [0,0.075,0,-0.021];
-        [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init+deltax(:,1)',options);
-        % [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),time,x_init,options);
+        [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init+deltax(:,1)',options);
+
         for kk = 1:length(TOUT)
             [y_nonlinear(:,kk), ~] = measure(XOUT(kk,:), kk, dt, 'nonlinear');
         end
-        
+
+        %% plot results
+        % state perturbations
         if plot_flag == 1
             y_str = {'$\delta_x$, km','$\delta_{\dot{x}}$, km/s','$\delta_y$, km',...
                 '$\delta_{\dot{y}}$, km/s'};
@@ -154,7 +143,7 @@ switch problem
                 printFigureToPdf('1StateErr', [8,8],'in');
             end
             
-            
+            % states vs time
             y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km',...
                 '$\dot{y}$, km/s'};
             figure
@@ -172,11 +161,12 @@ switch problem
                 end
             end
        
+            % measurements vs time
             figure
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
             hold on; box on; grid on;
-            plot(time(2:end), y_linear(1,2:end)-deltay(1,2:end), 'r')
+            plot(tvec(2:end), y_linear(1,2:end)-deltay(1,2:end), 'r')
 %             plot(TOUT', y_nonlinear(1,:), 'b--')
             legend('Linearized', 'ODE45')
             ylabel('$\rho$, km')
@@ -191,46 +181,12 @@ switch problem
 %             plot(TOUT', y_nonlinear(3,:), 'b--')
             ylabel('$\phi$, rad')
             xlabel('Time, s')
-
-
-%             if save_flag == 1
-%                 drawnow
-%                 printFigureToPdf('1Meas', [8,8],'in');
-%             end
-%             
-%             figure
-%             suptitle('Part 1 -- Measurements Errors Over Time')
-%             for ii = 1:stations
-%                 subplot(3,1,1)
-%                 hold on; box on; grid on;
-%                 plot(time, deltay(3*ii-2,:), 'r')
-%                 plot(TOUT', y(3*ii-2,:) - ynom(3*ii-2,:), 'b--')
-%                 legend('Linearized', 'ODE45','Location','SouthWest')
-%                 ylabel('$e_{\rho}$, km')
-% %                 xlim([0 time(end)])
-% %                 xlim([1600 2300])
-%                 subplot(3,1,2)
-%                 hold on; box on; grid on;
-%                 plot(time, deltay(3*ii-1,:), 'r')
-%                 plot(TOUT', y(3*ii-1,:) - ynom(3*ii-1,:), 'b--')
-%                 ylabel('$e_{\dot{\rho}}$, km/s')
-% %                 xlim([0 time(end)])
-% %                 xlim([1600 2300])
-%                 subplot(3,1,3)
-%                 hold on; box on; grid on;
-%                 plot(time, deltay(3*ii,:), 'r')
-%                 plot(TOUT', y(3*ii,:) - ynom(3*ii,:), 'b--')
-%                 ylabel('$e_{\phi}$, rad')
-%                 xlabel('Time, s')
-% %                 ylim([-0.06 0.06])
-% %                 xlim([0 time(end)])
-% %                 xlim([1600 2300])
-%             end
-%             if save_flag == 1
-%                 drawnow
-%                 printFigureToPdf('1MeasErr', [8,8],'in');
-%             end
+            if save_flag == 1
+                drawnow
+                printFigureToPdf('1Meas', [8,8],'in');
+            end
         end
+        
         
     case 2  % linearized KF (LKF)
         tf = tvec(end);
@@ -255,8 +211,10 @@ switch problem
         % calculate nominal trajectory
         [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
+        % linearized KF to get state perturbations
         [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu);
         
+        %% plot results
         if plot_flag
             figure
             hold on; box on; grid on; axis equal
@@ -308,8 +266,7 @@ switch problem
               plot(tvec,sigma(ii,:),'k')
               ylabel(y_str{ii})
             end
-            xlabel('Time, s')
-            
+            xlabel('Time, s') 
         end
         
         
