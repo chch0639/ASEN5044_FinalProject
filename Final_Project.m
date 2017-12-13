@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Author: Chris Chamberlain and Mitchell Smith
 % Written: 07 Dec 2017
-% Revised: 12 Dec 2017
+% Revised: 13 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose: ASEN 5044 - Statistical Estimation for Dynamical Final Project
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -122,7 +122,6 @@ switch problem
         ylabel('$\rho$, km')
         xlabel('Time, s')
         xlim([tvec(1) tvec(end)])
-%         ylim([-200 200])
         
         % DT nonlinear model
         x0 = x_init;
@@ -167,8 +166,7 @@ switch problem
                 ylabel(y_str{ii})
                 plot(tvec, deltax(ii,1:end-1)+xnom(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)','--b')
-%                 xlim([plot_time(1) plot_time(end)])
-%                 xlim([1600 2300])
+                xlim([tvec(1) tvec(end)])
                 if ii == 1
                     legend('Linearized', 'ODE45')
                 end
