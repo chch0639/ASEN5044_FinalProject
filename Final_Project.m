@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 1;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -93,7 +93,7 @@ switch problem
             theta0(ii) = (ii-1)*pi/3;
         end
         
-        for kk = 1:length(time)-1
+        for kk = 1:length(time)
             % linearize A around current state
             Anom = Anominal(xnom(:,kk),mu);
             
@@ -103,10 +103,11 @@ switch problem
             % state perturbations
             deltax(:,kk+1) = Fnom*deltax(:,kk) + Gnom*u;
 
-            [deltay(:,kk), ~] = measure(xnom(:,kk+1), kk, dt, 'linear', deltax(:,kk+1));
-            [y_nom(:,kk), ~] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
+            %% check frst H for dy -- starting off with wrong rhodot
+            [deltay(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'linear', deltax(:,kk+1));
+            [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
              y_linear(:,kk) = deltay(:,kk) + y_nom(:,kk);
-
+             
 %           % Uncomment these lines to use a nonlinear measurement for the linearized system!            
 %             [y_linear(:,kk), ~] = measure(xnom(:,kk)+deltax(:,kk), kk, dt, 'nonlinear');
 %             [y_nom(:,kk), ~] = measure(xnom(:,kk), kk, dt, 'nonlinear');
@@ -114,19 +115,14 @@ switch problem
 
         % plot linear measurements as well as error compared to data
         figure
-        suptitle('Linear Measurement Errors')
-        subplot(2,1,1)
+        title('Linear Measurement Errors')
         hold on; box on; grid on;
-        plot(tvec(2:end),y_linear(1,:),'r')
+        plot(tvec(2:end),y_nom(1,2:end),'b')
+        plot(tvec(2:end),y_linear(1,2:end),'r')
         ylabel('$\rho$, km')
-        xlim([tvec(1) tvec(end)])
-        subplot(2,1,2)
-        hold on; box on; grid on;
-        plot(tvec(2:end),ydata(1,2:end)-y_linear(1,:),'r')
-        ylabel('$\epsilon_{\rho}$, km')
         xlabel('Time, s')
         xlim([tvec(1) tvec(end)])
-        ylim([-200 200])
+%         ylim([-200 200])
         
         % DT nonlinear model
         x0 = x_init;
@@ -147,7 +143,7 @@ switch problem
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
-                plot(tvec, deltax(ii,:),'r')
+                plot(tvec, deltax(ii,1:end-1),'r')
                 plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
                 % plot(TOUT', XOUT(:,ii)' - (xnom(ii,:) + deltax(ii,1:end-1)), 'r') - this was wrong
                 if ii == 1
@@ -169,7 +165,7 @@ switch problem
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
-                plot(tvec, deltax(ii,1:end)+xnom(ii,:),'r')
+                plot(tvec, deltax(ii,1:end-1)+xnom(ii,:),'r')
                 plot(TOUT', XOUT(:,ii)','--b')
 %                 xlim([plot_time(1) plot_time(end)])
 %                 xlim([1600 2300])
@@ -182,18 +178,18 @@ switch problem
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
             hold on; box on; grid on;
-            plot(time(2:end), y_linear(1,:), 'r')
+            plot(time(2:end), y_linear(1,2:end)-deltay(1,2:end), 'r')
 %             plot(TOUT', y_nonlinear(1,:), 'b--')
-%             legend('Linearized', 'ODE45')
+            legend('Linearized', 'ODE45')
             ylabel('$\rho$, km')
             subplot(3,1,2)
             hold on; box on; grid on;
-            plot(tvec(2:end), y_linear(2,:), 'r')
+            plot(tvec(2:end), y_linear(2,2:end)-deltay(2,2:end), 'r')
 %             plot(TOUT', y_nonlinear(2,:), 'b--')
             ylabel('$\dot{\rho}$, km/s')
             subplot(3,1,3)
             hold on; box on; grid on;
-            plot(tvec(2:end), y_linear(3,:), 'r')
+            plot(tvec(2:end), y_linear(3,2:end)-deltay(3,2:end), 'r')
 %             plot(TOUT', y_nonlinear(3,:), 'b--')
             ylabel('$\phi$, rad')
             xlabel('Time, s')
@@ -239,8 +235,6 @@ switch problem
         end
         
     case 2  % linearized KF (LKF)
-        T = 2*pi*sqrt(r0^3/mu);
-        tvec = 0:dt:T;
         tf = tvec(end);
         
         % initialize matrices
