@@ -29,6 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
+Nsims = 2;
 
 % data:
 load Truth.mat
@@ -296,29 +297,51 @@ switch problem
         % Create Nominal Conditions
         [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
-        % Create Noisy Measurements
-        xnoise = x_init';
-        tnoise = [];
-        for ii = 1:length(tvec)-1
-            Sv = chol(Q)';
-            q = randn([length(Q) 1]);
-            wtilde = Sv*q;
+        for kk = 1:Nsims
+            % Create Noisy Measurements
+            xnoise = x_init';
+            tnoise = [];
+            for ii = 1:length(tvec)-1
+                Sv = chol(Q)';
+                q = randn([length(Q) 1]);
+                wtilde = Sv*q;
+                
+                [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+                
+                xnoise(:,ii+1) = x_temp(end,:)';
+                tnoise = [tnoise t_temp(end)];
+                
+                Sv = chol(R)';
+                r = randn([length(R) 1]);
+                ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
+                
+                if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
+                    ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r;
+                end
+            end
             
-            [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+            % Extended Kalman Filter
+            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
             
-            xnoise(:,ii+1) = x_temp(end,:)';
-            tnoise = [tnoise t_temp(end)];
-            
-            Sv = chol(R)';
-            r = randn([length(R) 1]);
-            ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
-            ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r; 
         end
         
-        % Extended Kalman Filter
-        [xhat,sigma, yhat, NEES, NIS] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
+        % Perform NEES and NIS Tests
+        NEESbar = mean(NEES,1);
+        alpha_NEES = 0.05;
+        Nnx = Nsims*n;
+        r1x = chi2inv(alpha_NEES/2, Nnx)./Nsims;
+        r2x = chi2inv(1-alpha_NEES/2, Nnx)./Nsims;
         
-        if plot_flag
+        NISbar = mean(NIS, 1);
+        alpha_NIS = 0.05;
+        Nny = Nsims*p;
+        r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
+        r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
+        
+        
+        
+        
+        if plot_flag            
             figure()
             hold on; grid on; box on; axis equal;
             title('Extended Kalman Filter')
@@ -366,6 +389,38 @@ switch problem
             plot(tvec, ynoise(3,:), 'g.-')
             ylabel('$\phi$, rad')
             xlabel('Time [s]')
+            
+            figure()
+            suptitle('State Errors Over Time')
+            subplot(311)
+            hold on; box on; grid on;
+            plot(tvec, xhat(1,:) - xnoise(1,:), 'r')
+            ylabel('State 1')
+            subplot(312)
+            hold on; box on; grid on;
+            plot(tvec, xhat(2,:) - xnoise(2,:), 'r')
+            ylabel('
+            
+            figure()
+            hold on; box on; grid on;
+            title('NEES Test')
+            h1 = plot(NEESbar, 'ro');
+            h2 = plot(r1x*ones(size(NEESbar)), 'r--');
+            plot(r2x*ones(size(NEESbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NEES statistic, $\bar{\epsilon}}_x$')
+            legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
+            
+            figure()
+            hold on; box on; grid on;
+            title('NIS Test')
+            h1 = plot(NISbar, 'ro');
+            h2 = plot(r1y*ones(size(NISbar)), 'r--');
+            plot(r2y*ones(size(NISbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NIS statistic, $\bar{\epsilon}}_y$')
+            legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
+            
         end
         
          

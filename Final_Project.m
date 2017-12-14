@@ -29,6 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
+Nsims = 10;
 
 % data:
 load Truth.mat
@@ -296,33 +297,66 @@ switch problem
         % Create Nominal Conditions
         [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
-        % Create Noisy Measurements
-        xnoise = x_init';
-        tnoise = [];
-        for ii = 1:length(tvec)-1
-            Sv = chol(Q)';
-            q = randn([length(Q) 1]);
-            wtilde = Sv*q;
+        for kk = 1:Nsims
+            % Create Noisy Measurements
+            xnoise = x_init';
+            tnoise = [];
+            for ii = 1:length(tvec)-1
+                Sv = chol(Q)';
+                q = randn([length(Q) 1]);
+                wtilde = Sv*q;
+                
+                [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+                
+                xnoise(:,ii+1) = x_temp(end,:)';
+                tnoise = [tnoise t_temp(end)];
+                
+                Sv = chol(R)';
+                r = randn([length(R) 1]);
+                ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
+                
+                if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
+                    ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r;
+                end
+            end
             
-            [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+            % Extended Kalman Filter
+            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
             
-            xnoise(:,ii+1) = x_temp(end,:)';
-            tnoise = [tnoise t_temp(end)];
-            
-            Sv = chol(R)';
-            r = randn([length(R) 1]);
-            ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
-            ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r; 
         end
         
-        % Extended Kalman Filter
-        [xhat,sigma, yhat, NEES, NIS] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
+        % Perform NEES and NIS Tests
+        NEESbar = mean(NEES,1);
+        alpha_NEES = 0.05;
+        Nnx = Nsims*n;
+        r1x = chi2inv(alpha_NEES/2, Nnx)./Nsims;
+        r2x = chi2inv(1-alpha_NEES/2, Nnx)./Nsims;
         
-        if plot_flag
+        NISbar = mean(NIS, 1);
+        alpha_NIS = 0.05;
+        Nny = Nsims*p;
+        r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
+        r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
+        
+        if plot_flag 
+            
+            y_str = {'$2\sigma_{x}$, km','$2\sigma_{\dot{x}}$, km/s',...
+                     '$2\sigma_{y}$, km','$2\sigma_{\dot{y}}$, km/s'};
+            figure
+            suptitle('2$\sigma$ Bounds vs. Time for Linearized KF')
+            hold on; grid on; box on;
+            for ii = 1:n
+              subplot(4,1,ii)
+              hold on; grid on; box on;
+              plot(tvec,sigma(ii,:),'k')
+              ylabel(y_str{ii})
+            end
+            xlabel('Time, s') 
+            
             figure()
             hold on; grid on; box on; axis equal;
             title('Extended Kalman Filter')
-            plot(xnom(:,1), xnom(:,3)', 'b')
+            %plot(xnom(:,1), xnom(:,3)', 'b')
             plot(xhat(1,:), xhat(3,:), 'r--')
             plot(xnoise(1,:), xnoise(3,:), 'g-.')
             legend('Nominal', 'Filtered', 'Noisy')
@@ -366,6 +400,47 @@ switch problem
             plot(tvec, ynoise(3,:), 'g.-')
             ylabel('$\phi$, rad')
             xlabel('Time [s]')
+            
+            figure()
+            suptitle('State Errors Over Time')
+            subplot(411)
+            hold on; box on; grid on;
+            plot(tvec, xhat(1,:) - xnoise(1,:), 'r')
+            ylabel('X Position')
+            subplot(412)
+            hold on; box on; grid on;
+            plot(tvec, xhat(2,:) - xnoise(2,:), 'r')
+            ylabel('X Velocity')
+            subplot(413)
+            hold on; box on; grid on;
+            plot(tvec, xhat(3,:) - xnoise(3,:), 'r')
+            ylabel('Y Position')
+            subplot(414)
+            hold on; box on; grid on;
+            plot(tvec, xhat(4,:) - xnoise(4,:), 'r')
+            ylabel('Y Velocity')
+            xlabel('Time [s]')
+            
+            figure()
+            hold on; box on; grid on;
+            title('NEES Test')
+            h1 = plot(NEESbar, 'ro');
+            h2 = plot(r1x*ones(size(NEESbar)), 'r--');
+            plot(r2x*ones(size(NEESbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NEES statistic, $\bar{\epsilon}}_x$')
+            legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
+            
+            figure()
+            hold on; box on; grid on;
+            title('NIS Test')
+            h1 = plot(NISbar, 'ro');
+            h2 = plot(r1y*ones(size(NISbar)), 'r--');
+            plot(r2y*ones(size(NISbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NIS statistic, $\bar{\epsilon}}_y$')
+            legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
+            
         end
         
          
