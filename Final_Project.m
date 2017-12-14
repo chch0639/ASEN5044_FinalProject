@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
+problem = 3;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -286,17 +286,37 @@ switch problem
         
         % Inputs to EKF:
         u = [0;0];
-        P0 = eye(4);
+        P0 = 10*eye(4);
         Omega = [0,0; 1,0; 0,0; 0,1];
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
         Q = Qtrue;
         R = Rtrue;
         
+        % Create Nominal Conditions
         [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
-
+        
+        % Create Noisy Measurements
+        xnoise = x_init';
+        tnoise = [];
+        for ii = 1:length(tvec)-1
+            Sv = chol(Q)';
+            q = randn([length(Q) 1]);
+            wtilde = Sv*q;
+            
+            [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+            
+            xnoise(:,ii+1) = x_temp(end,:)';
+            tnoise = [tnoise t_temp(end)];
+            
+            Sv = chol(R)';
+            r = randn([length(R) 1]);
+            ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
+            ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r; 
+        end
+        
         % Extended Kalman Filter
-        [xhat,sigma, yhat] = EKF(xhat0,u,ydata,P0,Q,Omega,R,n,tf,dt);
+        [xhat,sigma, yhat, NEES, NIS] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
         
         if plot_flag
             figure()
@@ -304,7 +324,8 @@ switch problem
             title('Extended Kalman Filter')
             plot(xnom(:,1), xnom(:,3)', 'b')
             plot(xhat(1,:), xhat(3,:), 'r--')
-            legend('Nominal', 'Filtered')
+            plot(xnoise(1,:), xnoise(3,:), 'g-.')
+            legend('Nominal', 'Filtered', 'Noisy')
             
             figure()
             suptitle('States Over Time')
@@ -312,12 +333,14 @@ switch problem
             hold on; box on; grid on;
             plot(tvec, xhat(1,:), 'r')
             plot(tnom, xnom(:,1), 'b--')
+            plot(tvec, xnoise(1,:), 'g.-')
             ylabel('X position')
-            legend('EKF', 'Nominal')
+            legend('EKF', 'Nominal', 'Noise')
             subplot(2,1,2)
             hold on; box on; grid on;
             plot(tvec, xhat(3,:), 'r')
             plot(tnom, xnom(:,3), 'b--')
+            plot(tvec, xnoise(3,:), 'g.-')
             ylabel('Y position')
             xlabel('Time [s]')
             
@@ -327,17 +350,20 @@ switch problem
             hold on; box on; grid on;
             plot(tvec, yhat(1,:), 'r')
             plot(tvec, ydata(1,:), 'b--')
+            plot(tvec, ynoise(1,:), 'g.-')
             ylabel('$\rho$, km')
-            legend('EKF Measurements', 'True Measurements', 'Location', 'Best')
+            legend('EKF Measurements', 'True Measurements', 'Noise', 'Location', 'Best')
             subplot(3,1,2)
             hold on; box on; grid on;
             plot(tvec, yhat(2,:), 'r')
             plot(tvec, ydata(2,:), 'b--')
+            plot(tvec, ynoise(2,:), 'g.-')
             ylabel('$\dot{\rho}$, km/s')
             subplot(3,1,3)
             hold on; box on; grid on;
             plot(tvec, yhat(3,:), 'r')
             plot(tvec, ydata(3,:), 'b--')
+            plot(tvec, ynoise(3,:), 'g.-')
             ylabel('$\phi$, rad')
             xlabel('Time [s]')
         end

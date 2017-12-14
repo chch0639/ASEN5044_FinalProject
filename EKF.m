@@ -31,9 +31,9 @@
 % 
 %           sigma - positive 2sigma bounds for all states
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% [xhat,sigma] = LinearizedKF(xhat0,input,meas,P,Q,Omega,R,n,tf,dt)
+% [xhat,sigma, yhat, NEES, NIS] = LinearizedKF(xhat0,xtrue,input,meas,P,Q,Omega,R,n,tf,dt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [xhat,sigma, yhat] = EKF(xhat0,u,y,P0,Q,Omega,R,n,tf,dt)
+function [xhat,sigma, yhat, NEES, NIS] = EKF(xhat0,xtrue,u,y,P0,Q,Omega,R,n,tf,dt)
 
 % Standard Gravitational Parameter
 mu = 398600;
@@ -59,22 +59,30 @@ for kk = 1:tf/dt
   
   % time update
   xhat(:,kk+1) = xhat(:,kk) + dt*dx;
-  P = F*P*F' + Omega*Q*Omega';
+  P = F*P*F' + Omega*Q*Omega'; % P-
 
   % measurement update step (+) superscript
   [yhat(:,kk+1), H] = measure(xhat(:,kk+1), kk, dt, 'nonlinear'); % NONLINEAR MEASUREMENT
   
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
   
+  % Compute NIS Statistic
+  NIS(kk) = (y(1:3,kk+1)-yhat(:,kk+1))'*inv(H*P*H'+R)*(y(1:3,kk+1)-yhat(:,kk+1));
+  
   if isequal(y(1:3,kk+1), zeros(size(y(1:3,kk+1)))) || isequal(yhat(:,kk+1), zeros(size(yhat(:,kk+1))))
       K = zeros(size(K));
   end
   xhat(:,kk+1) = xhat(:,kk+1)+K*(y(1:3,kk+1)-yhat(:,kk+1)); % a posteriori
   
-  P = (I-K*H)*P;
+  P = (I-K*H)*P; % P+
   
   % 2sigma error bounds
   sigma(:,kk+1) = 2*sqrt(diag(P));
+  
+  % Compute NEES statistic
+  NEES(kk) = (xtrue(:,kk) - xhat(:,kk+1))'*inv(P)*(xtrue(:,kk) - xhat(:,kk+1));
+  
+  
 end
 
 end
