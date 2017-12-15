@@ -41,8 +41,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,P,Q,Omega,R,n,tf,dt,truth)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
-xnom = states.xnom';     dxhat = states.dx;
+function [dxhat,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
+xnom = states.xnom;     dxhat = states.dx;
 u = inputs.u;           unom = inputs.unom;
 
 % (nxn) identity matrix
@@ -67,8 +67,12 @@ for kk = 1:tf/dt
   P = F*P*F' + Omega*Q*Omega';
   du = u(:,kk+1) - unom(:,kk+1);
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
-  
+
   dy = ydata(1:3,kk+1) - ynom;
+  
+  % Compute NIS Statistic
+  NIS(kk) = dy'*inv(H*P*H'+R)*dy;
+  
   % measurement update step (+) superscript
   if isequal(dy,zeros(size(dy))) ||...
      isequal(H*dxhat(:,kk+1),zeros(size(H*dxhat(:,kk+1)))) ||...
@@ -82,6 +86,9 @@ for kk = 1:tf/dt
   
   % 2sigma error bounds
   sigma(:,kk+1) = 2*sqrt(diag(P));
+  
+  % Compute NEES statistic
+  NEES(kk) = dxhat(:,kk+1)'*inv(P)*dxhat(:,kk+1);
 end
 
 end

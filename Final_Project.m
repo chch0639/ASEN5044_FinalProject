@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 3;
+problem = 2;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,7 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
-Nsims = 10;
+Nsims = 1;
 
 % data:
 load Truth.mat
@@ -205,23 +205,64 @@ switch problem
         G = dt*B;
         Omega = [0,0; 1,0; 0,0; 0,1];
         u(:,1) = [0;0];
-        P = 1e1*eye(n);
+        P = 1e2*eye(n);
         Q = Qtrue;
         R = Rtrue;
         
-        % calculate nominal trajectory
-        [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+        for kk = 1:Nsims
+          % Create Noisy Measurements
+          xnoise = x_init';
+          tnoise = [];
+          for ii = 1:length(tvec)-1
+            Sv = chol(Q)';
+            q = randn([length(Q) 1]);
+%             wtilde = Sv*q;
+            wtilde = mvnrnd(zeros(1,2),Qtrue);
+            
+            [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+            
+            xnoise(:,ii+1) = x_temp(end,:)';
+            tnoise = [tnoise t_temp(end)];
+            
+            Sv = chol(R)';
+            r = randn([length(R) 1]);
+            ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
+            
+            if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
+              Svr = mvnrnd(zeros(3,1),Rtrue)';
+              ynoise(:,ii+1) = ynoise(:,ii+1) + Svr;
+            end
+          end
+          states.xnom = xnoise;
+          
+          % calculate nominal trajectory
+          % [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+          
+          % linearized KF to get state perturbations
+          [dxhat,sigma,NEES(kk,:),NIS(kk,:)] = LinearizedKF(states,inputs,ynoise,G,Omega,P,Q,R,n,tf,dt,mu);
+        end
         
-        % linearized KF to get state perturbations
-        [dxhat,sigma] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu);
+        % Perform NEES and NIS Tests
+        NEESbar = mean(NEES,1);
+        alpha_NEES = 0.05;
+        Nnx = Nsims*n;
+        r1x = chi2inv(alpha_NEES/2, Nnx)./Nsims;
+        r2x = chi2inv(1-alpha_NEES/2, Nnx)./Nsims;
+        
+        NISbar = mean(NIS, 1);
+        alpha_NIS = 0.05;
+        Nny = Nsims*p;
+        r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
+        r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
+        
         
         %% plot results
         if plot_flag
             figure
             hold on; box on; grid on; axis equal
             title('Satellite Orbit')
-            plot(states.xnom(:,1)', states.xnom(:,3)', 'b')
-            plot(dxhat(1,:) + states.xnom(:,1)', dxhat(3,:) +  states.xnom(:,3)', 'r')
+            plot(states.xnom(1,:), states.xnom(3,:), 'b')
+            plot(dxhat(1,:) + states.xnom(1,:), dxhat(3,:) +  states.xnom(3,:), 'r')
             legend('Nominal', 'LKF','Location','EastOutside')
             xlabel('x, km')
             ylabel('y, km')
@@ -231,16 +272,16 @@ switch problem
             subplot(2,1,1)
             hold on; grid on; box on;
             ylabel('x, km')
-            plot(tvec, dxhat(1,:) + states.xnom(:,1)', 'r')
-            plot(tnom, states.xnom(:,1)', 'b')
+            plot(tvec, dxhat(1,:) + states.xnom(1,:), 'r')
+            plot(tvec, states.xnom(1,:), 'b')
             legend('LKF', 'Nominal', 'Location', 'Best')
             
             subplot(2,1,2)
             hold on; grid on; box on;
             ylabel('y, km')
             xlabel('Time, s')
-            plot(tvec, dxhat(3,:) + states.xnom(:,3)', 'r')
-            plot(tnom, states.xnom(:,3)', 'b')
+            plot(tvec, dxhat(3,:) + states.xnom(3,:), 'r')
+            plot(tvec, states.xnom(3,:), 'b')
             
             y_str = {'$e_{x}$, km','$e_{\dot{x}}$, km/s','$e_{y}$, km','$e_{\dot{y}}$, km/s'};
             figure
@@ -249,9 +290,9 @@ switch problem
             for ii = 1:n
               subplot(4,1,ii)
               hold on; grid on; box on;
-              % plot(tvec,sigma(ii,:),'--k')
+              plot(tvec,sigma(ii,:),'--k')
               plot(tvec,dxhat(ii,:),'r')
-              % plot(tvec,-sigma(ii,:),'--k')
+              plot(tvec,-sigma(ii,:),'--k')
               ylabel(y_str{ii})
             end
             xlabel('Time, s')
@@ -268,6 +309,26 @@ switch problem
               ylabel(y_str{ii})
             end
             xlabel('Time, s') 
+            
+            figure()
+            hold on; box on; grid on;
+            title('NEES Test')
+            h1 = plot(NEESbar, 'ro');
+            h2 = plot(r1x*ones(size(NEESbar)), 'r--');
+            plot(r2x*ones(size(NEESbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NEES statistic, $\bar{\epsilon}_x$')
+            legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
+            
+            figure()
+            hold on; box on; grid on;
+            title('NIS Test')
+            h1 = plot(NISbar, 'ro');
+            h2 = plot(r1y*ones(size(NISbar)), 'r--');
+            plot(r2y*ones(size(NISbar)), 'r--')
+            xlabel('Time Step [k]')
+            ylabel('NIS statistic, $\bar{\epsilon}_y$')
+            legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
         end
         
         
@@ -438,7 +499,7 @@ switch problem
             h2 = plot(r1y*ones(size(NISbar)), 'r--');
             plot(r2y*ones(size(NISbar)), 'r--')
             xlabel('Time Step [k]')
-            ylabel('NIS statistic, $\bar{\epsilon}}_y$')
+            ylabel('NIS statistic, $\bar{\epsilon}_y$')
             legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
             
         end
