@@ -210,22 +210,18 @@ switch problem
         R = Rtrue;
         
         for kk = 1:Nsims
-          % Create Noisy Measurements
+          % Ccreate noisy states and measurements
           xnoise = x_init';
-          tnoise = [];
           for ii = 1:length(tvec)-1
             Sv = chol(Q)';
             q = randn([length(Q) 1]);
-%             wtilde = Sv*q;
             wtilde = mvnrnd(zeros(1,2),Qtrue);
             
-            [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
-            
+            % integrate one time step to find next initial state
+            [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);         
             xnoise(:,ii+1) = x_temp(end,:)';
-            tnoise = [tnoise t_temp(end)];
             
-            Sv = chol(R)';
-            r = randn([length(R) 1]);
+            % use noisy state to find noisy measurement
             ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
             
             if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
