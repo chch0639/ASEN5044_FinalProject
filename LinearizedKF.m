@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author:   Chris Chamberlain
+% Author:   Chris Chamberlain and Mitchell Smith
 % Written:  07 Dec 2017
-% Revised:  13 Dec 2017
+% Revised:  18 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose:  ASEN 5044 - Statistical Estimation for Dynamical Systems Final
 %           Project. The Kalman Filter equations were obtained from Simon,
@@ -36,12 +36,20 @@
 %           dt - time step, s
 %
 % Outputs:  dxhat - predicted state vectors perturbations
+% 
+%           dy - 
+% 
+%           ynom - 
 %
 %           sigma - positive 2sigma bounds for all states
+% 
+%           NEES - 
+% 
+%           NIS - 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% [dxhat,sigma] = LinearizedKF(states,inputs,meas,G,P,Q,Omega,R,n,tf,dt,truth)
+% [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [dxhat, dy, ynom, sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
+function [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 xnom = states.xnom;     dxhat = states.dx;
 u = inputs.u;           unom = inputs.unom;
 
@@ -86,7 +94,6 @@ for kk = 1:tf/dt
     if have_measurement
         % measurement update step (+) superscript
         dxhat(:,kk+1) = dxhat_minus+K*(dy(1:3,kk+1)-H*dxhat_minus); % a posteriori
-        %P = (I-K*H)*P*(I-K*H)'+K*R*K';
         P = (I-K*H)*P;
     end
     

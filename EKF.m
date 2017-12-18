@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Author:   Mitchell Smith
 % Written:  07 Dec 2017
-% Revised:  07 Dec 2017
+% Revised:  18 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose:  ASEN 5044 - Statistical Estimation for Dynamical Systems Final
 %           Project. The Kalman Filter equations were obtained from Simon, 
@@ -29,9 +29,15 @@
 % 
 % Outputs:  xhat:   predicted total state vectors
 % 
-%           sigma - positive 2sigma bounds for all states
+%           sigma:  positive 2sigma bounds for all states
+% 
+%           yhat:
+% 
+%           NEES:
+% 
+%           NIS:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% [xhat,sigma, yhat, NEES, NIS] = LinearizedKF(xhat0,xtrue,input,meas,P,Q,Omega,R,n,tf,dt)
+% [xhat,sigma, yhat, NEES, NIS] = EKF(xhat0,xtrue,u,y,P0,Q,Omega,R,n,tf,dt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [xhat,sigma, yhat, NEES, NIS] = EKF(xhat0,xtrue,u,y,P0,Q,Omega,R,n,tf,dt)
 
