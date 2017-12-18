@@ -442,10 +442,8 @@ switch problem
                 q = randn([length(Q) 1]);
                 wtilde = Sv*q;
                 
-                [t_temp, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
-                
+                [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
                 xnoise(:,ii+1) = x_temp(end,:)';
-                tnoise = [tnoise t_temp(end)];
                 
                 Sv = chol(R)';
                 r = randn([length(R) 1]);
@@ -457,8 +455,8 @@ switch problem
             end
             
             % Extended Kalman Filter
-            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] = EKF(x_init',xnoise,u,ynoise,P0,200*Q,Omega,R,n,tf,dt);
-            
+            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] =...
+              EKF(x_init',xnoise,u,ynoise,P0,100*Q,Omega,R,n,tf,dt);  
         end
         
         % Perform NEES and NIS Tests
@@ -474,111 +472,91 @@ switch problem
         r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
         r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
         
-        if plot_flag 
-            
-            y_str = {'$2\sigma_{x}$, km','$2\sigma_{\dot{x}}$, km/s',...
-                     '$2\sigma_{y}$, km','$2\sigma_{\dot{y}}$, km/s'};
-            figure
-            suptitle('2$\sigma$ Bounds vs. Time for Linearized KF')
-            hold on; grid on; box on;
-            for ii = 1:n
-              subplot(4,1,ii)
-              hold on; grid on; box on;
-              plot(tvec,sigma(ii,:),'k')
-              ylabel(y_str{ii})
+        if plot_flag
+          y_str = {'X Position, km','X Velocity, km/s','Y Position, km','Y Velocity, km/s'};
+          figure()
+          suptitle('EKF -- State Residuals')
+          for ii = 1:n
+            subplot(n,1,ii)
+            hold on; box on; grid on;
+            plot(xnoise(ii,:) - xhat(ii,:),'r')
+            plot(sigma(ii,:), 'k--')
+            plot(-sigma(ii,:), 'k--')
+            xlim([tvec(1)/dt tvec(end)/dt])
+            if ii == 2 || ii == 4
+              ylim([-0.5 0.5])
             end
-            xlabel('Time, s') 
-            
-            figure()
-            hold on; grid on; box on; axis equal;
-            title('Extended Kalman Filter')
-            %plot(xnom(:,1), xnom(:,3)', 'b')
-            plot(xhat(1,:), xhat(3,:), 'r--')
-            plot(xnoise(1,:), xnoise(3,:), 'g-.')
-            legend('Filtered', 'Noisy')
-            
-            figure()
-            suptitle('States Over Time')
-            subplot(2,1,1)
+            ylabel(y_str{ii})
+          end
+          xlabel('Time step, k')
+          
+          
+          figure()
+          hold on; grid on; box on; axis equal;
+          title('Extended Kalman Filter Orbit')
+          plot(xnoise(1,:), xnoise(3,:), 'k','Linewidth',4)
+          plot(xhat(1,:), xhat(3,:), 'r--')
+          xlabel('X Position, km')
+          ylabel('Y Position, km')
+          legend('Noise', 'Estimated')
+          
+          figure()
+          suptitle('EKF -- States Over Time')
+          subplot(2,1,1)
+          hold on; box on; grid on;
+          plot(tvec, xnoise(1,:), 'k','Linewidth',4)
+          plot(tvec, xhat(1,:), '--r')
+          xlim([tvec(1) tvec(end)])
+          ylabel('X position, km')
+          legend('Noise','Estimated')
+          subplot(2,1,2)
+          hold on; box on; grid on;
+          plot(tvec, xnoise(3,:), 'k','Linewidth',4)
+          plot(tvec, xhat(3,:), '--r')
+          xlim([tvec(1) tvec(end)])
+          ylabel('Y position, km')
+          xlabel('Time, s')
+          
+          y_str = {'$\rho$, km','$\dot{\rho}$, km/s','$\phi$, rad'};
+          figure()
+          suptitle('EKF -- Measurements Over Time')
+          for ii = 1:p
+            subplot(p,1,ii)
             hold on; box on; grid on;
-            plot(tvec, xhat(1,:), 'r')
-            plot(tnom, xnom(:,1), 'b--')
-            plot(tvec, xnoise(1,:), 'g.-')
-            ylabel('X position')
-            legend('EKF', 'Nominal', 'Noise')
-            subplot(2,1,2)
-            hold on; box on; grid on;
-            plot(tvec, xhat(3,:), 'r')
-            plot(tnom, xnom(:,3), 'b--')
-            plot(tvec, xnoise(3,:), 'g.-')
-            ylabel('Y position')
-            xlabel('Time [s]')
-            
-            figure()
-            suptitle('Measurements Over Time')
-            subplot(3,1,1)
-            hold on; box on; grid on;
-            plot(tvec, yhat(1,:), 'r')
-            plot(tvec, ydata(1,:), 'b--')
-            plot(tvec, ynoise(1,:), 'g.-')
-            ylabel('$\rho$, km')
-            legend('EKF Measurements', 'True Measurements', 'Noise', 'Location', 'Best')
-            subplot(3,1,2)
-            hold on; box on; grid on;
-            plot(tvec, yhat(2,:), 'r')
-            plot(tvec, ydata(2,:), 'b--')
-            plot(tvec, ynoise(2,:), 'g.-')
-            ylabel('$\dot{\rho}$, km/s')
-            subplot(3,1,3)
-            hold on; box on; grid on;
-            plot(tvec, yhat(3,:), 'r')
-            plot(tvec, ydata(3,:), 'b--')
-            plot(tvec, ynoise(3,:), 'g.-')
-            ylabel('$\phi$, rad')
-            xlabel('Time [s]')
-            
-            figure()
-            suptitle('State Errors Over Time')
-            subplot(411)
-            hold on; box on; grid on;
-            plot(tvec, xhat(1,:) - xnoise(1,:), 'r')
-            ylabel('X Position')
-            subplot(412)
-            hold on; box on; grid on;
-            plot(tvec, xhat(2,:) - xnoise(2,:), 'r')
-            ylabel('X Velocity')
-            subplot(413)
-            hold on; box on; grid on;
-            plot(tvec, xhat(3,:) - xnoise(3,:), 'r')
-            ylabel('Y Position')
-            subplot(414)
-            hold on; box on; grid on;
-            plot(tvec, xhat(4,:) - xnoise(4,:), 'r')
-            ylabel('Y Velocity')
-            xlabel('Time [s]')
-            
-            figure()
-            hold on; box on; grid on;
-            title('NEES Test')
-            h1 = plot(NEESbar, 'ro');
-            h2 = plot(r1x*ones(size(NEESbar)), 'r--');
-            plot(r2x*ones(size(NEESbar)), 'r--')
-            xlabel('Time Step [k]')
-            ylabel('NEES statistic, $\bar{\epsilon}_x$')
-            ylim([-r1y 1.5*r2y])
-            legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
-            
-            figure()
-            hold on; box on; grid on;
-            title('NIS Test')
-            h1 = plot(NISbar, 'ro');
-            h2 = plot(r1y*ones(size(NISbar)), 'r--');
-            plot(r2y*ones(size(NISbar)), 'r--')
-            xlabel('Time Step [k]')
-            ylabel('NIS statistic, $\bar{\epsilon}_y$')
-            ylim([-r1y 1.5*r2y])
-            legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
-            
+            plot(tvec, ynoise(ii,:), 'k','Linewidth',4)
+            plot(tvec, yhat(ii,:), '--r')
+            xlim([tvec(1) tvec(end)])
+            ylabel(y_str{ii})
+            if ii == 1
+              legend('Noise','Estimated','Location', 'Best')
+            end
+          end
+          xlabel('Time, s')
+          
+ 
+          figure()
+          hold on; box on; grid on;
+          title('EKF -- NEES Test')
+          h1 = plot(NEESbar, 'ro');
+          h2 = plot(r1x*ones(size(NEESbar)), 'k--');
+          plot(r2x*ones(size(NEESbar)), 'k--')
+          xlabel('Time Step, k')
+          ylabel('NEES Statistic, $\bar{\epsilon}_x$')
+          % ylim([-r1y 1.5*r2y])
+          xlim([tvec(1)/dt tvec(end)/dt])
+          legend([h1 h2], 'NEES @ Time k', 'Bounds', 'Location', 'Best')
+          
+          figure()
+          hold on; box on; grid on;
+          title('EKF -- NIS Test')
+          h1 = plot(NISbar, 'ro');
+          h2 = plot(r1y*ones(size(NISbar)), 'k--');
+          plot(r2y*ones(size(NISbar)), 'k--')
+          xlabel('Time Step, k')
+          ylabel('NIS Statistic, $\bar{\epsilon}_y$')
+          % ylim([-r1y 1.5*r2y])
+          xlim([tvec(1)/dt tvec(end)/dt])
+          legend([h1 h2], 'NIS @ Time k', 'Bounds', 'Location', 'Best')
         end
         
          

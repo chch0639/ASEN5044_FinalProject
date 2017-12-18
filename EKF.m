@@ -82,31 +82,7 @@ for kk = 1:tf/dt
   
   % Compute NEES statistic
   NEES(kk) = (xtrue(:,kk+1) - xhat(:,kk+1))'*inv(P)*(xtrue(:,kk+1) - xhat(:,kk+1));
-  
-  
+   
 end
 
-figure()
-suptitle('State Residuals')
-subplot(411)
-hold on; box on; grid on;
-plot(xtrue(1,:) - xhat(1,:))
-plot(sigma(1,:), 'k--')
-ylabel('X Position')
-subplot(412)
-hold on; box on; grid on;
-plot(xtrue(2,:) - xhat(2,:))
-plot(sigma(2,:), 'k--')
-ylabel('X Velocity')
-subplot(413)
-hold on; box on; grid on;
-plot(xtrue(3,:) - xhat(3,:))
-plot(sigma(3,:), 'k--')
-ylabel('Y Position')
-subplot(414)
-hold on; box on; grid on;
-plot(xtrue(4,:) - xhat(4,:))
-plot(sigma(4,:), 'k--')
-ylabel('Y Velocity')
-xlabel('Time step [k]')
 end
