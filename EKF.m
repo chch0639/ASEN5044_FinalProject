@@ -51,7 +51,7 @@ sigma(:,1) = 2*sqrt(diag(P));
 for kk = 1:tf/dt
   Anom = Anominal(xhat(:,kk), mu);
   F = I + dt*Anom;
-
+    
   % time update step (-) superscript
   
   % Use full nonlinear dynamics to estimate the state
@@ -67,12 +67,13 @@ for kk = 1:tf/dt
   K = P*H'*inv(H*P*H'+R);                                   % Kalman gain
   
   % Compute NIS Statistic
-  NIS(kk) = (y(1:3,kk+1)-yhat(:,kk+1))'*inv(H*P*H'+R)*(y(1:3,kk+1)-yhat(:,kk+1));
+  NIS(kk) = (y(1:3,kk+1)-yhat(1:3,kk+1))'*inv(H*P*H'+R)*(y(1:3,kk+1)-yhat(1:3,kk+1));
   
-  if isequal(y(1:3,kk+1), zeros(size(y(1:3,kk+1)))) || isequal(yhat(:,kk+1), zeros(size(yhat(:,kk+1))))
+  if yhat(4,kk+1) == 0 || y(4,kk+1) ==0
       K = zeros(size(K));
+      NIS(kk) = NaN;
   end
-  xhat(:,kk+1) = xhat(:,kk+1)+K*(y(1:3,kk+1)-yhat(:,kk+1)); % a posteriori
+  xhat(:,kk+1) = xhat(:,kk+1)+K*(y(1:3,kk+1)-yhat(1:3,kk+1)); % a posteriori
   
   P = (I-K*H)*P; % P+
   
@@ -80,9 +81,32 @@ for kk = 1:tf/dt
   sigma(:,kk+1) = 2*sqrt(diag(P));
   
   % Compute NEES statistic
-  NEES(kk) = (xtrue(:,kk) - xhat(:,kk+1))'*inv(P)*(xtrue(:,kk) - xhat(:,kk+1));
+  NEES(kk) = (xtrue(:,kk+1) - xhat(:,kk+1))'*inv(P)*(xtrue(:,kk+1) - xhat(:,kk+1));
   
   
 end
 
+figure()
+suptitle('State Residuals')
+subplot(411)
+hold on; box on; grid on;
+plot(xtrue(1,:) - xhat(1,:))
+plot(sigma(1,:), 'k--')
+ylabel('X Position')
+subplot(412)
+hold on; box on; grid on;
+plot(xtrue(2,:) - xhat(2,:))
+plot(sigma(2,:), 'k--')
+ylabel('X Velocity')
+subplot(413)
+hold on; box on; grid on;
+plot(xtrue(3,:) - xhat(3,:))
+plot(sigma(3,:), 'k--')
+ylabel('Y Position')
+subplot(414)
+hold on; box on; grid on;
+plot(xtrue(4,:) - xhat(4,:))
+plot(sigma(4,:), 'k--')
+ylabel('Y Velocity')
+xlabel('Time step [k]')
 end

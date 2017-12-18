@@ -25,6 +25,9 @@ function [yhat, Hnom] = measure(xhat, k, dt, mode, varargin)
 if isempty(varargin) && strcmp(mode, 'linear')
     error('When using measure for linear measurements, include the nominal state in xhat and the perturbation after mode')
 end
+if isempty(varargin) && strcmp(mode, 'filter')
+    error('When using filter mode please pass in station ID')
+end
 
 stations = 6;           % Number of tracking stations
 RE = 6378;              % Radius of Earth [km]
@@ -37,7 +40,7 @@ Y = xhat(3);
 Ydot = xhat(4);
 
 % Initialize variables in loop
-yhat = zeros(3,1); 
+yhat = zeros(4,1); 
 Hnom = zeros(3,4);
 Xs = zeros(stations,1); 
 Xs_dot = zeros(stations,1);
@@ -46,15 +49,36 @@ Ys_dot = zeros(stations,1);
 theta = zeros(stations,1);
 phi = zeros(stations,1);
 
+
+if strcmp(mode, 'filter')
+    station = varargin{1};
+    theta0 = (station-1)*pi/3;
+    % X and Y position and velocity of each staion
+    Xs = RE*cos(omegaE*(k)*dt + theta0);
+    Xs_dot = -RE*omegaE*sin(omegaE*(k)*dt + theta0);
+    Ys = RE*sin(omegaE*(k)*dt + theta0);
+    Ys_dot = RE*omegaE*cos(omegaE*(k)*dt + theta0);
+    xs = [Xs; Xs_dot; Ys; Ys_dot];
+    
+    % nonlinear measurement
+    phi = atan2((Y-Ys), (X-Xs));
+    rho = sqrt((X-Xs)^2 + (Y-Ys)^2);
+    rho_dot = ((X-Xs)*(Xdot - Xs_dot) + (Y - Ys)*(Ydot - Ys_dot)) / (rho);
+    
+    Hnom = Cnominal(xhat,xs);
+    yhat = [rho; rho_dot; phi; station];
+    return
+end
+
 % Get state of each of the stations
 for ii = 1:stations
     theta0 = (ii-1)*pi/3; % Initial position of each station
 
     % X and Y position and velocity of each staion
-    Xs(ii) = RE*cos(omegaE*(k-1)*dt + theta0);
-    Xs_dot(ii) = -RE*omegaE*sin(omegaE*(k-1)*dt + theta0);
-    Ys(ii) = RE*sin(omegaE*(k-1)*dt + theta0);
-    Ys_dot(ii) = RE*omegaE*cos(omegaE*(k-1)*dt + theta0);
+    Xs(ii) = RE*cos(omegaE*(k)*dt + theta0);
+    Xs_dot(ii) = -RE*omegaE*sin(omegaE*(k)*dt + theta0);
+    Ys(ii) = RE*sin(omegaE*(k)*dt + theta0);
+    Ys_dot(ii) = RE*omegaE*cos(omegaE*(k)*dt + theta0);
     xs = [Xs(ii); Xs_dot(ii); Ys(ii); Ys_dot(ii)];
     
     if strcmp(mode, 'linear')
@@ -74,7 +98,7 @@ for ii = 1:stations
         
         if check1 || check2 || check3            
             Hnom = Cnominal(deltax,xs);
-            yhat = Hnom*deltax;
+            yhat = [Hnom*deltax; ii];
             return
         end
         
@@ -94,7 +118,7 @@ for ii = 1:stations
             phi = phi(ii);
             
             Hnom = Cnominal(xhat,xs);
-            yhat = [rho; rho_dot; phi];
+            yhat = [rho; rho_dot; phi; ii];
             return
         end
     else

@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 3;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,6 +30,7 @@ xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);
 Nsims = 1;
+rng(100)
 
 % data:
 load Truth.mat
@@ -192,30 +193,35 @@ switch problem
     case 2  % linearized KF (LKF)
         tf = tvec(end);
         
+        load Y_noisey_CGR
+        
         % initialize matrices
         states.x = zeros(n,length(tvec));
         states.x(:,1) = x_init;
         states.dx = zeros(n,length(tvec));
-        states.dx(:,1) = [0,0.075,0,-0.021];       % initial state perturbations
+        perturb = [0,0.075,0,-0.021];       % initial state perturbations
+        states.dx(:,1) = perturb;
         inputs.u = zeros(m,length(tvec));
         inputs.unom = zeros(m,length(tvec));
         meas.y = zeros(p,length(tvec));
         meas.ynom = zeros(p,length(tvec));
         B = [0,0; 1,0; 0,0; 0,1];
         G = dt*B;
-        Omega = [0,0; 1,0; 0,0; 0,1];
+        Gamma = B;
+        Omega = dt*B;
         u(:,1) = [0;0];
-        P = 1e2*eye(n);
+        P = 1e6*eye(n);
         Q = Qtrue;
         R = Rtrue;
         
         for kk = 1:Nsims
           % Ccreate noisy states and measurements
-          xnoise = x_init';
+          xnoise = x_init';% + perturb';
           for ii = 1:length(tvec)-1
             Sv = chol(Q)';
             q = randn([length(Q) 1]);
-            wtilde = mvnrnd(zeros(1,2),Qtrue);
+            %wtilde = mvnrnd(zeros(1,2),Qtrue);
+            wtilde = Sv*q;
             
             % integrate one time step to find next initial state
             [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);         
@@ -224,18 +230,27 @@ switch problem
             % use noisy state to find noisy measurement
             ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
             
-            if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
-              Svr = mvnrnd(zeros(3,1),Rtrue)';
-              ynoise(:,ii+1) = ynoise(:,ii+1) + Svr;
-            end
           end
-          states.xnom = xnoise;
+          r = randn([length(R) 1]);
+          for ii = 1:length(tvec)-1
+              if ynoise(4,ii+1) ~= 0
+                  % Svr = mvnrnd(zeros(3,1),Rtrue)';
+                  Sv = chol(R)';
+                  r = randn([length(R) 1]);
+                  %wtilde = mvnrnd(zeros(1,2),Qtrue);
+                  vtilde = Sv*r;
+                  ynoise(1:3,ii+1) = ynoise(1:3,ii+1) + vtilde;
+              end
+          end
+          states.xnoise = xnoise;
           
           % calculate nominal trajectory
-          % [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
-          
+          [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+          states.xnom = states.xnom';
           % linearized KF to get state perturbations
-          [dxhat,sigma,NEES(kk,:),NIS(kk,:)] = LinearizedKF(states,inputs,ynoise,G,Omega,P,Q,R,n,tf,dt,mu);
+          %[dxhat,dyhat,ynom, sigma, NEES(kk,:), NIS(kk,:)] = LinearizedKF(states,inputs,Y_noisey,G,Omega,P,Q,R,n,tf,dt,mu);
+          [dxhat,dyhat,ynom, sigma, NEES(kk,:), NIS(kk,:)] = LinearizedKF(states,inputs,ynoise,G,Omega,P,Q,R,n,tf,dt,mu);
+          
         end
         
         % Perform NEES and NIS Tests
@@ -257,9 +272,10 @@ switch problem
             figure
             hold on; box on; grid on; axis equal
             title('Satellite Orbit')
-            plot(states.xnom(1,:), states.xnom(3,:), 'b')
-            plot(dxhat(1,:) + states.xnom(1,:), dxhat(3,:) +  states.xnom(3,:), 'r')
-            legend('Nominal', 'LKF','Location','EastOutside')
+            plot(states.xnoise(1,:), states.xnoise(3,:), 'b')
+            plot(dxhat(1,:) + states.xnom(1,:), dxhat(3,:) +  states.xnom(3,:), 'r--')
+            plot(states.xnom(1,:), states.xnom(3,:), 'k', 'Linewidth', 1)
+            legend('True', 'LKF', 'Nominal', 'Location','EastOutside')
             xlabel('x, km')
             ylabel('y, km')
             
@@ -269,15 +285,35 @@ switch problem
             hold on; grid on; box on;
             ylabel('x, km')
             plot(tvec, dxhat(1,:) + states.xnom(1,:), 'r')
-            plot(tvec, states.xnom(1,:), 'b')
-            legend('LKF', 'Nominal', 'Location', 'Best')
-            
+            plot(tvec, states.xnoise(1,:), 'b--')
+            plot(tvec, states.xnom(1,:), 'k')
+            legend('LKF', 'Noise', 'Nominal', 'Location', 'Best')
             subplot(2,1,2)
             hold on; grid on; box on;
             ylabel('y, km')
             xlabel('Time, s')
             plot(tvec, dxhat(3,:) + states.xnom(3,:), 'r')
-            plot(tvec, states.xnom(3,:), 'b')
+            plot(tvec, states.xnoise(3,:), 'b--')
+            plot(tvec, states.xnom(3,:), 'k')
+            
+            figure()
+            suptitle('State Residuals (dxhat)')
+            subplot(4,1,1)
+            hold on; box on; grid on;
+            plot(tvec, dxhat(1,:))
+            ylabel('X position')
+            subplot(4,1,2)
+            hold on; box on; grid on;
+            plot(tvec, dxhat(2,:))
+            ylabel('X Velocity')
+            subplot(4,1,3)
+            hold on; box on; grid on;
+            plot(tvec, dxhat(3,:))
+            ylabel('Y position')
+            subplot(4,1,4)
+            hold on; box on; grid on;
+            plot(tvec, dxhat(4,:))
+            ylabel('Y velocity')
             
             y_str = {'$e_{x}$, km','$e_{\dot{x}}$, km/s','$e_{y}$, km','$e_{\dot{y}}$, km/s'};
             figure
@@ -307,6 +343,31 @@ switch problem
             xlabel('Time, s') 
             
             figure()
+            suptitle('Measurements Over Time')
+            subplot(4,1,1)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(1,:) + ynom(1,:), 'r')
+            plot(tvec, ynoise(1,:), 'g--')
+            ylabel('$\rho$, km')
+            legend('LKF Measurements', 'Noise', 'Location', 'Best')
+            subplot(4,1,2)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(2,:) + ynom(2,:), 'r')
+            plot(tvec, ynoise(2,:), 'g--')
+            ylabel('$\dot{\rho}$, km/s')
+            subplot(4,1,3)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(3,:) + ynom(3,:), 'r')
+            plot(tvec, ynoise(3,:), 'g--')
+            ylabel('$\phi$, rad')
+            subplot(4,1,4)
+            hold on; box on; grid on;
+            plot(tvec, ynom(4,:), 'r')
+            plot(tvec, ynoise(4,:), 'g--')
+            ylabel('Station ID')
+            xlabel('Time [s]')
+            
+            figure()
             hold on; box on; grid on;
             title('NEES Test')
             h1 = plot(NEESbar, 'ro');
@@ -314,6 +375,7 @@ switch problem
             plot(r2x*ones(size(NEESbar)), 'r--')
             xlabel('Time Step [k]')
             ylabel('NEES statistic, $\bar{\epsilon}_x$')
+            ylim([0 r2x*1.5])
             legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
             
             figure()
@@ -325,6 +387,23 @@ switch problem
             xlabel('Time Step [k]')
             ylabel('NIS statistic, $\bar{\epsilon}_y$')
             legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
+            
+            figure()
+            hold on; box on; grid on;
+            suptitle('Measurement Residuals (dy)')
+            subplot(3,1,1)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(1,:))
+            ylabel('dy(1)')
+            subplot(3,1,2)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(2,:))
+            ylabel('dy(2)')
+            subplot(3,1,3)
+            hold on; box on; grid on;
+            plot(tvec, dyhat(3,:))
+            ylabel('dy(3)')
+            xlabel('Time [s]')
         end
         
         
@@ -345,7 +424,7 @@ switch problem
         % Inputs to EKF:
         u = [0;0];
         P0 = 10*eye(4);
-        Omega = [0,0; 1,0; 0,0; 0,1];
+        Omega = dt*[0,0; 1,0; 0,0; 0,1];
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
         Q = Qtrue;
@@ -372,13 +451,13 @@ switch problem
                 r = randn([length(R) 1]);
                 ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
                 
-                if ~isequal(ynoise(:,ii+1), zeros(size(ynoise(:,ii+1))))
-                    ynoise(:,ii+1) = ynoise(:,ii+1) + Sv*r;
+                if ynoise(4,ii+1) ~= 0
+                    ynoise(1:3,ii+1) = ynoise(1:3,ii+1) + Sv*r;
                 end
             end
             
             % Extended Kalman Filter
-            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] = EKF(x_init',xnoise,u,ynoise,P0,Q,Omega,R,n,tf,dt);
+            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] = EKF(x_init',xnoise,u,ynoise,P0,200*Q,Omega,R,n,tf,dt);
             
         end
         
@@ -416,7 +495,7 @@ switch problem
             %plot(xnom(:,1), xnom(:,3)', 'b')
             plot(xhat(1,:), xhat(3,:), 'r--')
             plot(xnoise(1,:), xnoise(3,:), 'g-.')
-            legend('Nominal', 'Filtered', 'Noisy')
+            legend('Filtered', 'Noisy')
             
             figure()
             suptitle('States Over Time')
@@ -485,7 +564,8 @@ switch problem
             h2 = plot(r1x*ones(size(NEESbar)), 'r--');
             plot(r2x*ones(size(NEESbar)), 'r--')
             xlabel('Time Step [k]')
-            ylabel('NEES statistic, $\bar{\epsilon}}_x$')
+            ylabel('NEES statistic, $\bar{\epsilon}_x$')
+            ylim([-r1y 1.5*r2y])
             legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
             
             figure()
@@ -496,6 +576,7 @@ switch problem
             plot(r2y*ones(size(NISbar)), 'r--')
             xlabel('Time Step [k]')
             ylabel('NIS statistic, $\bar{\epsilon}_y$')
+            ylim([-r1y 1.5*r2y])
             legend([h1 h2], 'NIS @ time k', 'Bounds', 'Location', 'Best')
             
         end
