@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 1;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,7 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;                  % initial state
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);    % ode tolerance
-Nsims = 5;                    % number of simulations for NEES and NIS
+Nsims = 20;                     % number of simulations for NEES and NIS
 rng(100)                        % fix random number generator seed
 
 % data:
@@ -103,17 +103,6 @@ switch problem
             [y_nom(:,kk+1), ~] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
         end
         
-        %y_linear = deltay + y_nom;
-        % plot linear measurements as well as error compared to data
-        %         figure
-        %         title('Linear Measurement Errors')
-        %         hold on; box on; grid on;
-        %         plot(tvec(2:end),y_nom(1,2:end),'b')
-        %         plot(tvec(2:end),y_linear(1,2:end),'r')
-        %         ylabel('$\rho$, km')
-        %         xlabel('Time, s')
-        %         xlim([tvec(1) tvec(end)])
-        
         % DT nonlinear model
         [TOUT,XOUT] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init+deltax(:,1)',options);
         
@@ -133,34 +122,40 @@ switch problem
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
+                plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'k','Linewidth',4)
                 plot(tvec, deltax(ii,:),'r')
-                plot(TOUT', XOUT(:,ii)' - xnom(ii,:),'--b')
-                % plot(TOUT', XOUT(:,ii)' - (xnom(ii,:) + deltax(ii,1:end-1)), 'r') - this was wrong
                 if ii == 1
-                    legend('Linearized', 'ODE45')
+                    legend('ode45','Linearized','Location','Best')
                 end
             end
+            xlabel('Time, s')
             if save_flag == 1
                 drawnow
-                printFigureToPdf('1StateErr', [8,8],'in');
+                printFigureToPdf('Part1_residuals', [8,8],'in');
             end
+            
             
             % states vs time
             y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km',...
                 '$\dot{y}$, km/s'};
             figure
             hold on; box on; grid on;
-            suptitle('States vs Time, Non-linear and Linearized Approximate Dynamics Simulation')
+            suptitle('States Over Time')
             for ii = 1:n
                 subplot(n,1,ii)
                 hold on; box on; grid on;
                 ylabel(y_str{ii})
+                plot(TOUT', XOUT(:,ii)','k','Linewidth',4)
                 plot(tvec, deltax(ii,:)+xnom(ii,:),'r')
-                plot(TOUT', XOUT(:,ii)','--b')
                 xlim([tvec(1) tvec(end)])
                 if ii == 1
-                    legend('Linearized', 'ODE45')
+                    legend('ode45','Linearized','Location','Best')
                 end
+            end
+            xlabel('Time, s')
+            if save_flag == 1
+                drawnow
+                printFigureToPdf('Part1_states', [8,8],'in');
             end
             
             % measurements vs time
@@ -168,27 +163,24 @@ switch problem
             suptitle('Part 1 -- Measurements Over Time')
             subplot(3,1,1)
             hold on; box on; grid on;
+            plot(TOUT', y_nonlinear(1,:),'k','Linewidth',4)
             plot(tvec(2:end), y_linear(1,2:end), 'r')
-            %plot(tvec(2:end), y_linear(1,2:end)-deltay(1,2:end), 'r')
-            plot(TOUT', y_nonlinear(1,:), 'b--')
-            legend('Linearized', 'ODE45')
+            legend('ode45','Linearized','Location','Best')
             ylabel('$\rho$, km')
             subplot(3,1,2)
             hold on; box on; grid on;
+            plot(TOUT', y_nonlinear(2,:),'k','Linewidth',4)
             plot(tvec(2:end), y_linear(2,2:end), 'r')
-            %plot(tvec(2:end), y_linear(2,2:end)-deltay(2,2:end), 'r')
-            plot(TOUT', y_nonlinear(2,:), 'b--')
             ylabel('$\dot{\rho}$, km/s')
             subplot(3,1,3)
             hold on; box on; grid on;
+            plot(TOUT', y_nonlinear(3,:),'k','Linewidth',4)
             plot(tvec(2:end), y_linear(3,2:end), 'r')
-            %plot(tvec(2:end), y_linear(3,2:end)-deltay(3,2:end), 'r')
-            plot(TOUT', y_nonlinear(3,:), 'b--')
             ylabel('$\phi$, rad')
             xlabel('Time, s')
             if save_flag == 1
                 drawnow
-                printFigureToPdf('1Meas', [8,8],'in');
+                printFigureToPdf('Part1_measurements', [8,8],'in');
             end
         end
         
@@ -275,7 +267,7 @@ switch problem
             title('Linearized Kalman Filter Orbit')
             plot(states.xnoise(1,:), states.xnoise(3,:),'--k')
             plot(dxhat(1,:)+states.xnom(1,:),dxhat(3,:)+states.xnom(3,:),'r')
-            legend('Noise','Estimated','Location','EastOutside')
+            legend('Noise','Estimated')
             xlabel('X Position, km')
             ylabel('Y Position, km')
             if save_flag == 1
@@ -457,7 +449,7 @@ switch problem
                 plot(xnoise(ii,:) - xhat(ii,:),'r')
                 plot(sigma(ii,:), 'k--')
                 if ii == 1
-                    legend('Residuals','2$\sigma$ Bounds','Location','SouthEast')
+                    legend('Residuals','2$\sigma$ Bounds','Location','Best')
                 end
                 plot(-sigma(ii,:), 'k--')
                 xlim([tvec(1)/dt tvec(end)/dt])
