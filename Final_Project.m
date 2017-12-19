@@ -8,9 +8,9 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 1;
+problem = 3;
 plot_flag = 1;
-save_flag = 1;
+save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % constants
 n = 4;                          % number of states
@@ -29,7 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;                  % initial state
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);    % ode tolerance
-Nsims = 20;                     % number of simulations for NEES and NIS
+Nsims = 50;                     % number of simulations for NEES and NIS
 rng(100)                        % fix random number generator seed
 
 % data:
@@ -387,25 +387,23 @@ switch problem
         
         % Inputs to EKF:
         u = [0;0];
-        P0 = [20   0   0   0;
-            0    .3  0   0;
-            0    0   20  0;
-            0    0   0   .3];
+        P0 = diag([.01 .001 .01 .001]);
 
         Omega = dt*[0,0; 1,0; 0,0; 0,1];
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
         Q = Qtrue;
-        Q_EKF = 65*Qtrue;
+        Q_EKF = 61.5*Qtrue;
         R = Rtrue;
-        R_EKF = 1000*Rtrue;
+        R_EKF = Rtrue;
         
         % Create Nominal Conditions
         [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         
         for kk = 1:Nsims
             % Create Noisy Measurements
-            xnoise = x_init' ;
+            x_vary = chol(P0)'*randn([length(P0) 1]);
+            xnoise = x_init' + x_vary;
             for ii = 1:length(tvec)-1
                 Sv = chol(Q)';
                 q = randn([length(Q) 1]);
