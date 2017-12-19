@@ -68,7 +68,7 @@ for kk = 1:tf/dt
     F = I + dt*Anom;
     
     % time update step (-) superscript
-    dxhat_minus = F*dxhat(:,kk)+G*du;
+    dxhat(:,kk+1) = F*dxhat(:,kk)+G*du;
     P = F*P*F' + Omega*Q*Omega';
     
     have_measurement = ydata(4,kk+1) ~= 0;
@@ -98,7 +98,7 @@ for kk = 1:tf/dt
     
     if have_measurement
         % measurement update step (+) superscript
-        dxhat(:,kk+1) = dxhat_minus+K*(dy(1:3,kk+1)-H*dxhat_minus); % a posteriori
+        dxhat(:,kk+1) = dxhat(:,kk+1)+K*(dy(1:3,kk+1)-H*dxhat(:,kk+1)); % a posteriori
         P = (I-K*H)*P;
     end
     
