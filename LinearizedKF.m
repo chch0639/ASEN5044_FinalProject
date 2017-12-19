@@ -49,7 +49,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
+function [dxhat,dy,ynom,ydata,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 xnom = states.xnom;     dxhat = states.dx;
 u = inputs.u;           unom = inputs.unom;
 
@@ -73,10 +73,15 @@ for kk = 1:tf/dt
     
     have_measurement = ydata(4,kk+1) ~= 0;
     if have_measurement
-        [ynom(:,kk+1), H] = measure(xnom(:,kk+1), kk, dt, 'filter', ydata(4,kk+1));
+        [ynom(:,kk+1), H] = measure(xnom(:,kk+1), kk, dt, 'nonlinear');
+        have_measurement = have_measurement && ynom(4,kk+1) ~= 0;
         K = P*H'*inv(H*P*H'+R);
     else
-        ynom(:,kk+1) = zeros(4,1);
+        ynom(:,kk+1)= zeros(4,1);
+    end
+    
+    if ~have_measurement
+        ydata(:,kk+1) = zeros(4,1);
     end
     
     du = u(:,kk+1) - unom(:,kk+1);
