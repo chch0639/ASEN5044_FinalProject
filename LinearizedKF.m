@@ -50,7 +50,7 @@
 % [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [dxhat,dy,ynom,ydata,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
-xnom = states.xnom;     dxhat = states.dx;
+xnom = states.xnom;     dxhat = states.dx;      xtrue = states.xnoise;
 u = inputs.u;           unom = inputs.unom;
 
 % (nxn) identity matrix
@@ -106,7 +106,8 @@ for kk = 1:tf/dt
     sigma(:,kk+1) = 2*sqrt(diag(P));
     
     % Compute NEES statistic
-    NEES(kk) = dxhat(:,kk+1)'*inv(P)*dxhat(:,kk+1);
+    ex = xtrue(:,kk+1) - (xnom(:,kk+1) + dxhat(:,kk+1));
+    NEES(kk) = ex'*inv(P)*ex;
 end
 
 end

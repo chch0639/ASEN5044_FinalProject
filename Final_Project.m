@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 3;
+problem = 2;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,7 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;                  % initial state
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);    % ode tolerance
-Nsims = 50;                     % number of simulations for NEES and NIS
+Nsims = 1;                     % number of simulations for NEES and NIS
 rng(100)                        % fix random number generator seed
 
 % data:
@@ -220,22 +220,23 @@ switch problem
         Omega = dt*B;
         
         u(:,1) = [0;0];
-        P = 1e6*eye(n);
+        P0 = diag([.01 .001 .01 .001]);
         Q = Qtrue;
-        Q_LKF = 100*Q;
+        Q_LKF = Q;
         SvQ = chol(Q)';
         R = Rtrue;
-        R_LKF = 1000*R;
+        R_LKF = R;
         SvR = chol(R)';
         
         for kk = 1:Nsims
-            % Ccreate noisy states and measurements
+            % Create noisy states and measurements
             xnoise = x_init' + states.dx(:,1);
             for ii = 1:length(tvec)-1
                 wtilde = SvQ*randn([length(Q) 1]);        % process noise
                 
                 % integrate one time step to find next initial state
                 [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+                %[~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu),[0 dt],xnoise(:,end),options);
                 xnoise(:,ii+1) = x_temp(end,:)';
                 
                 % use noisy state to find noisy measurement
@@ -256,7 +257,7 @@ switch problem
             
             % linearized KF to get state perturbations
             [dxhat,dyhat,ynom,ynoise, sigma, NEES(kk,:), NIS(kk,:)] =...
-                LinearizedKF(states,inputs,ynoise,G,Omega,P,Q_LKF,R_LKF,n,tf,dt,mu);
+                LinearizedKF(states,inputs,ynoise,G,Omega,P0,Q_LKF,R_LKF,n,tf,dt,mu);
         end
         
         % Perform NEES and NIS Tests
@@ -363,8 +364,8 @@ switch problem
             plot(r2x*ones(size(NEESbar)), 'r--')
             xlabel('Time Step, k')
             ylabel('NEES statistic, $\bar{\epsilon}_x$')
-            ylim([0 r2x*1.5])
-            xlim([0 200])
+            %ylim([0 r2x*1.5])
+            %xlim([0 200])
             legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
             if save_flag == 1
                 drawnow
@@ -393,7 +394,7 @@ switch problem
         
         %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
         Q = Qtrue;
-        Q_EKF = 61.5*Qtrue;
+        Q_EKF = 0.95*Qtrue;
         R = Rtrue;
         R_EKF = Rtrue;
         
