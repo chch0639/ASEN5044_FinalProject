@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Author:   Mitchell Smith
 % Written:  07 Dec 2017
-% Revised:  18 Dec 2017
+% Revised:  19 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose:  ASEN 5044 - Statistical Estimation for Dynamical Systems Final
 %           Project. The Kalman Filter equations were obtained from Simon,

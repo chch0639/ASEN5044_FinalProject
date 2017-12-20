@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Author:   Chris Chamberlain and Mitchell Smith
 % Written:  07 Dec 2017
-% Revised:  18 Dec 2017
+% Revised:  19 Dec 2017
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Purpose:  ASEN 5044 - Statistical Estimation for Dynamical Systems Final
 %           Project. The Kalman Filter equations were obtained from Simon,
@@ -43,11 +43,13 @@
 %
 %           sigma - positive 2sigma bounds for all states
 % 
+%           ex - state residuals
+% 
 %           NEES - 
 % 
 %           NIS - 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% [dxhat,dy,ynom,sigma,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
+% [dxhat,dy,ynom,ydata,sigma,ex,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [dxhat,dy,ynom,ydata,sigma,ex,NEES,NIS] = LinearizedKF(states,inputs,ydata,G,Omega,P,Q,R,n,tf,dt,mu)
 xnom = states.xnom;     dxhat = states.dx;      xtrue = states.xnoise;

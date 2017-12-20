@@ -623,7 +623,7 @@ switch problem
         
         %% plot results
         if plot_flag 
-          y_str = {'X Position, km','X Velocity, km/s','Y Position, km','Y Velocity, km/s'};
+          y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
           figure
           suptitle('Linearized KF -- States Over Time')
           for ii = 1:n
@@ -683,6 +683,7 @@ switch problem
         
         %%
         if plot_flag
+          y_str = {'$\rho$, km','$\dot{\rho}$, km/s','$\phi$, rad','Station ID'};
           figure()
           suptitle('EKF -- Measurements Over Time')
           for ii = 1:n
@@ -722,6 +723,29 @@ switch problem
                 drawnow
                 printFigureToPdf('Part4_EKF_states', [8,8],'in');
             end
+            
+            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
+            figure()
+            suptitle('States Comparison Over Time')
+            for ii = 1:n
+              subplot(n,1,ii)
+              hold on; box on; grid on;
+              plot(tvec, dxhat(ii,:) + states.xnom(ii,:), 'k','Linewidth',4)
+              plot(tvec, xhat(ii,:), 'r')
+              if ii == 1
+                legend('LKF','EKF','Location','Best')
+              end
+              xlim([tvec(1) tvec(end)])
+              ylabel(y_str{ii})
+            end
+            xlabel('Time, s')
+            if save_flag == 1
+                drawnow
+                printFigureToPdf('Part4_EKF_statescomp', [8,8],'in');
+            end
+            
+            
+            
         end
         
     otherwise
