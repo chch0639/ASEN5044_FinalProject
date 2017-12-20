@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 2;
+problem = 4;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,8 +29,9 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;                  % initial state
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);    % ode tolerance
-Nsims = 1;                     % number of simulations for NEES and NIS
+Nsims = 18;                     % number of simulations for NEES and NIS
 rng(100)                        % fix random number generator seed
+T = 3*2*pi*sqrt(r0^3/mu);       % three orbital periods
 
 % data:
 load Truth.mat
@@ -199,7 +200,8 @@ switch problem
         
         
     case 2  % linearized KF (LKF)
-        tf = tvec(end);
+      tvec = 0:dt:T;  
+      tf = tvec(end);  
         
         % initialize matrices
         states.x = zeros(n,length(tvec));
@@ -220,7 +222,7 @@ switch problem
         Omega = dt*B;
         
         u(:,1) = [0;0];
-        P0 = diag([.01 .001 .01 .001]);
+        P0 = 100*diag([.01 .001 .01 .001]);
         Q = Qtrue;
         Q_LKF = Q;
         SvQ = chol(Q)';
@@ -256,7 +258,7 @@ switch problem
             states.xnom = states.xnom';
             
             % linearized KF to get state perturbations
-            [dxhat,dyhat,ynom,ynoise, sigma, NEES(kk,:), NIS(kk,:)] =...
+            [dxhat,dyhat,ynom,ynoise, sigma,ex, NEES(kk,:), NIS(kk,:)] =...
                 LinearizedKF(states,inputs,ynoise,G,Omega,P0,Q_LKF,R_LKF,n,tf,dt,mu);
         end
         
@@ -284,26 +286,29 @@ switch problem
             legend('Noise','Estimated')
             xlabel('X Position, km')
             ylabel('Y Position, km')
+            xlim([-7500 7500])
+            ylim([-7500 7500])
             if save_flag == 1
                 drawnow
                 printFigureToPdf('LKF_orbit', [8,8],'in');
             end
             
             y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
-            y_limits = [-530,530;-2,2;-300,300;-1,1];
+            y_limits = [-60,60;-0.25,0.25;-60,60;-0.25,0.25];
             figure
             suptitle('Linearized KF -- State Residuals')
             hold on; grid on; box on;
             for ii = 1:n
                 subplot(4,1,ii)
                 hold on; grid on; box on;
-                plot(tvec,dxhat(ii,:),'r')
+                plot(tvec,ex(ii,:),'r')
                 plot(tvec,sigma(ii,:),'--k')
                 if ii == 1
                     legend('Residuals','2$\sigma$ Bounds','Location','SouthEast')
                 end
                 plot(tvec,-sigma(ii,:),'--k')
                 ylim([y_limits(ii,1) y_limits(ii,2)])
+                xlim([tvec(1) tvec(end)])
                 ylabel(y_str{ii})
             end
             xlabel('Time, s')
@@ -312,24 +317,25 @@ switch problem
                 printFigureToPdf('LKF_residuals', [8,8],'in');
             end
             
+            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
             figure
             suptitle('Linearized KF -- States Over Time')
-            subplot(2,1,1)
-            hold on; grid on; box on;
-            plot(tvec, states.xnoise(1,:), 'k','Linewidth',4)
-            plot(tvec, dxhat(1,:) + states.xnom(1,:), 'r')
-            ylabel('X Position, km')
-            legend('Noise', 'Estimated', 'Location', 'Best')
-            subplot(2,1,2)
-            hold on; grid on; box on;
-            plot(tvec, states.xnoise(3,:), 'k','Linewidth',4)
-            plot(tvec, dxhat(3,:) + states.xnom(3,:), 'r')
-            ylabel('Y Position, km')
+            for ii = 1:n
+              subplot(n,1,ii)
+              hold on; grid on; box on;
+              plot(tvec, states.xnoise(ii,:), 'k','Linewidth',4)
+              plot(tvec, dxhat(ii,:) + states.xnom(ii,:), 'r')
+              xlim([tvec(1) tvec(end)])
+              ylabel(y_str{ii})
+              if ii == 1 
+                legend('Noise', 'Estimated', 'Location', 'Best')
+              end
+            end
             xlabel('Time, s')
             if save_flag == 1
                 drawnow
                 printFigureToPdf('LKF_states', [8,8],'in');
-            end
+            end        
             
             y_str = {'$\rho$, km','$\dot{\rho}$, km/s','$\phi$, rad','Station ID'};
             figure()
@@ -339,6 +345,7 @@ switch problem
                 hold on; box on; grid on;
                 plot(tvec, ynoise(ii,:), 'k','Linewidth',4)
                 plot(tvec, dyhat(ii,:)+ynom(ii,:), 'r')
+                xlim([tvec(1) tvec(end)])
                 if ii == 1
                     legend('Noise', 'Estimated','Location','Best')
                 end
@@ -348,6 +355,7 @@ switch problem
             hold on; box on; grid on;
             plot(tvec,ynoise(p+1,:), 'k','Linewidth',4)
             plot(tvec,ynom(p+1,:),'r')
+            xlim([tvec(1) tvec(end)])
             ylabel(y_str{p+1})
             xlabel('Time, s')
             if save_flag == 1
@@ -364,8 +372,9 @@ switch problem
             plot(r2x*ones(size(NEESbar)), 'r--')
             xlabel('Time Step, k')
             ylabel('NEES statistic, $\bar{\epsilon}_x$')
-            %ylim([0 r2x*1.5])
-            %xlim([0 200])
+%             ylim([0 15])
+%             xlim([0 100])
+            xlim([tvec(1)/dt tvec(end)/dt])
             legend([h1 h2], 'NEES @ time k', 'Bounds', 'Location', 'Best')
             if save_flag == 1
                 drawnow
@@ -375,7 +384,8 @@ switch problem
         
         
     case 3  % extended KF (EKF)
-        tf = tvec(end);
+      tvec = 0:dt:T;  
+      tf = tvec(end);
         
         % State Vector Definition:
         %   x1: X   (x position)
@@ -440,6 +450,7 @@ switch problem
         r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
         r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
         
+        %%
         if plot_flag
             figure()
             hold on; grid on; box on; axis equal;
@@ -454,7 +465,8 @@ switch problem
                 printFigureToPdf('EKF_orbit', [8,8],'in');
             end
             
-            y_str = {'X Position, km','X Velocity, km/s','Y Position, km','Y Velocity, km/s'};
+            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
+            y_limits = [-10 10;-0.075 0.075;-12 12;-0.075 0.075];
             figure()
             suptitle('EKF -- State Residuals')
             for ii = 1:n
@@ -462,14 +474,12 @@ switch problem
                 hold on; box on; grid on;
                 plot(xnoise(ii,:) - xhat(ii,:),'r')
                 plot(sigma(ii,:), 'k--')
-                if ii == 1
+                if ii == 2
                     legend('Residuals','2$\sigma$ Bounds','Location','Best')
                 end
                 plot(-sigma(ii,:), 'k--')
                 xlim([tvec(1)/dt tvec(end)/dt])
-                if ii == 2 || ii == 4
-                    ylim([-0.5 0.5])
-                end
+                ylim([y_limits(ii,1) y_limits(ii,2)])
                 ylabel(y_str{ii})
             end
             xlabel('Time step, k')
@@ -478,21 +488,20 @@ switch problem
                 printFigureToPdf('EKF_residuals', [8,8],'in');
             end
             
+            y_str = {'$x$, km','$\dot{x}$, km/s','$y$, km','$\dot{y}$, km/s'};
             figure()
             suptitle('EKF -- States Over Time')
-            subplot(2,1,1)
-            hold on; box on; grid on;
-            plot(tvec, xnoise(1,:), 'k','Linewidth',4)
-            plot(tvec, xhat(1,:), 'r')
-            xlim([tvec(1) tvec(end)])
-            ylabel('X position, km')
-            legend('Noise','Estimated','Location','Best')
-            subplot(2,1,2)
-            hold on; box on; grid on;
-            plot(tvec, xnoise(3,:), 'k','Linewidth',4)
-            plot(tvec, xhat(3,:), 'r')
-            xlim([tvec(1) tvec(end)])
-            ylabel('Y position, km')
+            for ii = 1:n
+              subplot(n,1,ii)
+              hold on; box on; grid on;
+              plot(tvec, xnoise(ii,:), 'k','Linewidth',4)
+              plot(tvec, xhat(ii,:), 'r')
+              xlim([tvec(1) tvec(end)])
+              ylabel(y_str{ii})
+              if ii == 1
+                legend('Noise','Estimated','Location','Best')
+              end
+            end
             xlabel('Time, s')
             if save_flag == 1
                 drawnow
@@ -583,191 +592,79 @@ switch problem
         Omega = dt*B;
         
         u(:,1) = [0;0];
-        P = 1e6*eye(n);
+        P0 = 100*diag([.01 .001 .01 .001]);
         Q = Qtrue;
-        Q_LKF = 100*Q;
+        Q_LKF = Q;
+        SvQ = chol(Q)';
         R = Rtrue;
-        R_LKF = 1000*R;
+        R_LKF = R;
+        SvR = chol(R)';
         
+        % Create noisy states and measurements
+        xnoise = x_init' + states.dx(:,1);
+        for ii = 1:length(tvec)-1
+          wtilde = SvQ*randn([length(Q) 1]);        % process noise
+          
+          % integrate one time step to find next initial state
+          [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
+          xnoise(:,ii+1) = x_temp(end,:)';
+        end
         ynoise = ydata;
+        states.xnoise = xnoise;
         
         % calculate nominal trajectory
-        [~,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
+        [tnom,states.xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
         states.xnom = states.xnom';
         
         % linearized KF to get state perturbations
-        [dxhat,dyhat,ynom,ynoise, sigma] =...
-          LinearizedKF(states,inputs,ynoise,G,Omega,P,Q_LKF,R_LKF,n,tf,dt,mu);
+        [dxhat,dyhat,ynom,ynoise, sigma, ex] =...
+          LinearizedKF(states,inputs,ynoise,G,Omega,P0,Q_LKF,R_LKF,n,tf,dt,mu);
+        
         
         %% plot results
-        if plot_flag     
-            y_str = {'X Position, km','X Velocity, km/s','Y Position, km',...
-                     'Y Velocity, km/s'};
-            y_limits = [min(-sigma(1,:)+dxhat(1,:) + states.xnom(1,:)),...
-                        max(sigma(1,:)+dxhat(1,:) + states.xnom(1,:));
-                        -10 10; 
-                        min(-sigma(3,:)+dxhat(3,:) + states.xnom(3,:)),...
-                        max(sigma(1,:)+dxhat(3,:) + states.xnom(3,:));
-                        -10 10];       
-            figure
-            suptitle('Linearized KF -- States Over Time')
-            for ii = 1:n
-              subplot(n,1,ii)
-              hold on; grid on; box on;
-              plot(tvec, dxhat(ii,:) + states.xnom(ii,:), 'r')
-              plot(tvec, sigma(ii,:)+dxhat(ii,:) + states.xnom(ii,:), '--k')
-              if ii == 1
-                legend('State', '2$\sigma$ bounds', 'Location', 'Best')
-              end
-              plot(tvec, -sigma(ii,:)+dxhat(ii,:) + states.xnom(ii,:), '--k')
-              ylim([y_limits(ii,1) y_limits(ii,2)])
-              xlim([tvec(1) tvec(end)])
-              ylabel(y_str{ii})
-            end
-            xlabel('Time, s')
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('Part4_states', [8,8],'in');
-            end
-            
-            y_str = {'X Position, km','X Velocity, km/s','Y Position, km',...
-                     'Y Velocity, km/s'};
-%             y_limits = [min(-dxhat(1,:)),...
-%                         max(dxhat(1,:));
-%                         min(-dxhat(2,:)),...
-%                         max(dxhat(2,:)); 
-%                         min(-dxhat(3,:)),...
-%                         max(dxhat(3,:));
-%                         min(-dxhat(4,:)),...
-%                         max(dxhat(4,:));];       
-
-            y_limits = [-1014 1014; -1.3 1.3;-140 140;-0.75 0.75 ]; 
-                      
-            figure
-            suptitle('Linearized KF -- State Residuals Over Time')
-            for ii = 1:n
-              subplot(n,1,ii)
-              hold on; grid on; box on;
-              plot(tvec, dxhat(ii,:), 'r')
-              plot(tvec, sigma(ii,:), '--k')
-              if ii == 1
-                legend('State', '2$\sigma$ bounds', 'Location', 'Best')
-              end
-              plot(tvec, -sigma(ii,:), '--k')
-              ylim([y_limits(ii,1) y_limits(ii,2)])
-              xlim([tvec(1) tvec(end)])
-              ylabel(y_str{ii})
-            end
-            xlabel('Time, s')
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('Part4_residuals', [8,8],'in');
-            end
-        end
-        
-        %% Extended KF
-        tf = tvec(end);
-        
-        % State Vector Definition:
-        %   x1: X   (x position)
-        %   x2: X'  (x velocity)
-        %   x3: Y   (y position)
-        %   x4: Y'  (y velocity)
-        
-        % initial state:
-        xhat0 = [r0; 0; 0; r0*sqrt(mu/r0^3)];
-        
-        % Inputs to EKF:
-        u = [0;0];
-        P0 = [20   0   0   0;
-            0    .3  0   0;
-            0    0   20  0;
-            0    0   0   .3];
-
-        Omega = dt*[0,0; 1,0; 0,0; 0,1];
-        
-        %%%%%% Guesses for R and Q to simulate actual measurements %%%%%%%%
-        Q = Qtrue;
-        Q_EKF = 65*Qtrue;
-        R = Rtrue;
-        R_EKF = 1000*Rtrue;
-        
-        % Create Nominal Conditions
-        [tnom, xnom] = ode45(@(t,x)NLode(t,x,u,mu),tvec,x_init,options);
-        
-        for kk = 1:Nsims
-            % Create Noisy Measurements
-            xnoise = x_init' ;
-            for ii = 1:length(tvec)-1
-                Sv = chol(Q)';
-                q = randn([length(Q) 1]);
-                wtilde = Sv*q;
-                
-                [~, x_temp] = ode45(@(t,x)NLode(t,x,u,mu, wtilde),[0 dt],xnoise(:,end),options);
-                xnoise(:,ii+1) = x_temp(end,:)';
-                
-%                 Sv = chol(R)';
-%                 r = randn([length(R) 1]);
-%                 ynoise(:,ii+1) = measure(xnoise(:,ii+1), ii, dt, 'nonlinear');
-%                 
-%                 if ynoise(4,ii+1) ~= 0
-%                     ynoise(1:3,ii+1) = ynoise(1:3,ii+1) + Sv*r;
-%                 end
-            end
-            ynoise = ydata;
-            
-            % Extended Kalman Filter
-            [xhat,sigma, yhat, NEES(kk,:), NIS(kk,:)] =...
-                EKF(x_init',xnoise,u,ynoise,P0,Q_EKF,Omega,R_EKF,n,tf,dt);
-        end
-        
-        % Perform NEES and NIS Tests
-        NEESbar = mean(NEES,1);
-        alpha_NEES = 0.05;
-        Nnx = Nsims*n;
-        r1x = chi2inv(alpha_NEES/2, Nnx)./Nsims;
-        r2x = chi2inv(1-alpha_NEES/2, Nnx)./Nsims;
-        
-        NISbar = mean(NIS, 1);
-        alpha_NIS = 0.05;
-        Nny = Nsims*p;
-        r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
-        r2y = chi2inv(1-alpha_NIS/2, Nny)./Nsims;
-        
         if plot_flag
-            figure()
-            hold on; grid on; box on; axis equal;
-            title('Extended Kalman Filter Orbit')
-            plot(xnoise(1,:), xnoise(3,:), 'k','Linewidth',4)
-            plot(xhat(1,:), xhat(3,:), 'r--')
-            xlabel('X Position, km')
-            ylabel('Y Position, km')
-            legend('Noise', 'Estimated')
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('EKF_orbit', [8,8],'in');
+          
+          y_str = {'X Position, km','X Velocity, km/s','Y Position, km','Y Velocity, km/s'};
+          figure
+          suptitle('Linearized KF -- States Over Time')
+          for ii = 1:n
+            subplot(n,1,ii)
+            hold on; grid on; box on;
+            plot(tvec, dxhat(ii,:) + states.xnom(ii,:), 'r')
+            plot(tvec, sigma(ii,:) + dxhat(ii,:) + states.xnom(ii,:),'--k')
+            plot(tvec, -sigma(ii,:) + dxhat(ii,:) + states.xnom(ii,:),'--k')
+            ylabel(y_str{ii})
+            if ii == 1
+              legend('Noise', 'Estimated', 'Location', 'Best')
             end
-            
-            figure()
-            suptitle('EKF -- States Over Time')
-            subplot(2,1,1)
-            hold on; box on; grid on;
-            plot(tvec, xnoise(1,:), 'k','Linewidth',4)
-            plot(tvec, xhat(1,:), 'r')
-            xlim([tvec(1) tvec(end)])
-            ylabel('X position, km')
-            legend('Noise','Estimated','Location','Best')
-            subplot(2,1,2)
-            hold on; box on; grid on;
-            plot(tvec, xnoise(3,:), 'k','Linewidth',4)
-            plot(tvec, xhat(3,:), 'r')
-            xlim([tvec(1) tvec(end)])
-            ylabel('Y position, km')
-            xlabel('Time, s')
-            if save_flag == 1
-                drawnow
-                printFigureToPdf('EKF_states', [8,8],'in');
+          end
+          xlabel('Time, s')
+          if save_flag == 1
+            drawnow
+            printFigureToPdf('Part4_states', [8,8],'in');
+          end
+          
+          y_str = {'X Position, km','X Velocity, km/s','Y Position, km','Y Velocity, km/s'};
+          y_limits = [-40 40; -.5 0.5;-40 40;-0.5 0.5];
+          figure
+          suptitle('Linearized KF -- State Residuals Over Time')
+          for ii = 1:n
+            subplot(n,1,ii)
+            hold on; grid on; box on;
+            plot(tvec, ex(ii,:), 'r')
+            plot(tvec, sigma(ii,:),'--k')
+            plot(tvec, -sigma(ii,:),'--k')
+            ylabel(y_str{ii})
+            ylim([y_limits(ii,1) y_limits(ii,2)])
+            if ii == 1
+              legend('Noise', 'Estimated', 'Location', 'Best')
             end
+          end
+          xlabel('Time, s')
+          if save_flag == 1
+            drawnow
+            printFigureToPdf('Part4_residuals', [8,8],'in');
+          end
         end
 
         
