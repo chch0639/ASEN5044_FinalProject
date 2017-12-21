@@ -8,7 +8,7 @@
 clearvars; plotsettings(14,2); close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Inputs
-problem = 4;
+problem = 3;
 plot_flag = 1;
 save_flag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,7 +29,7 @@ ydot0 = r0*sqrt(mu/r0^3);       % km/s
 xnom = [x0,xdot0,y0,ydot0];     % initial state
 x_init = xnom;                  % initial state
 options = odeset('RelTol',1e-12,'AbsTol',1e-12);    % ode tolerance
-Nsims = 18;                     % number of simulations for NEES and NIS
+Nsims = 25;                     % number of simulations for NEES and NIS
 rng(100)                        % fix random number generator seed
 T = 3*2*pi*sqrt(r0^3/mu);       % three orbital periods
 
@@ -444,7 +444,7 @@ switch problem
         r1x = chi2inv(alpha_NEES/2, Nnx)./Nsims;
         r2x = chi2inv(1-alpha_NEES/2, Nnx)./Nsims;
         
-        NISbar = mean(NIS, 1);
+        NISbar = nanmean(NIS, 1);
         alpha_NIS = 0.05;
         Nny = Nsims*p;
         r1y = chi2inv(alpha_NIS/2, Nny)./Nsims;
@@ -547,25 +547,26 @@ switch problem
             xlim([tvec(1)/dt tvec(end)/dt])
             legend([h1 h2], 'NEES @ Time k', 'Bounds', 'Location', 'Best')
             if save_flag == 1
-                drawnow
-                printFigureToPdf('EKF_NEES', [8,4],'in');
+              drawnow
+              printFigureToPdf('EKF_NEES', [8,4],'in');
             end
             
-            %           figure()
-            %           hold on; box on; grid on;
-            %           title('EKF -- NIS Test')
-            %           h1 = plot(NISbar, 'ro');
-            %           h2 = plot(r1y*ones(size(NISbar)), 'k--');
-            %           plot(r2y*ones(size(NISbar)), 'k--')
-            %           xlabel('Time Step, k')
-            %           ylabel('NIS Statistic, $\bar{\epsilon}_y$')
-            %           % ylim([-r1y 1.5*r2y])
-            %           xlim([tvec(1)/dt tvec(end)/dt])
-            %           legend([h1 h2], 'NIS @ Time k', 'Bounds', 'Location', 'Best')
-            %           if save_flag == 1
-            %             drawnow
-            %             printFigureToPdf('EKF_NIS', [8,4],'in');
-            %           end
+            figure()
+            hold on; box on; grid on;
+            title_string = sprintf('EKF -- NIS Test: %d Trials', Nsims);
+            title(title_string)
+            h1 = plot(NISbar, 'ro');
+            h2 = plot(r1y*ones(size(NISbar)), 'k--');
+            plot(r2y*ones(size(NISbar)), 'k--')
+            xlabel('Time Step, k')
+            ylabel('NIS Statistic, $\bar{\epsilon}_y$')
+            ylim([0 10])
+            xlim([tvec(1)/dt tvec(end)/dt])
+            legend([h1 h2], 'NIS @ Time k', 'Bounds', 'Location', 'Best')
+            if save_flag == 1
+              drawnow
+              printFigureToPdf('EKF_NIS', [8,4],'in');
+            end
         end
         
         
